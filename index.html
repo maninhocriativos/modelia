@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Modelia CRM</title>
-    <link rel="stylesheet" href="styles.css?v=20260605-02" />
+    <link rel="stylesheet" href="styles.css?v=20260605-03" />
   </head>
   <body data-view="atendimento">
     <main class="app-shell">
@@ -28,15 +28,15 @@
         <section class="metrics" aria-label="Resumo do CRM">
           <div>
             <strong id="metric-leads">0</strong>
-            <span>leads</span>
+            <span>conversas</span>
           </div>
           <div>
             <strong id="metric-open">0</strong>
-            <span>abertos</span>
+            <span>msgs/h</span>
           </div>
           <div>
             <strong id="metric-sales">0</strong>
-            <span>ganhos</span>
+            <span>conversao</span>
           </div>
           <div>
             <strong id="metric-adult">0</strong>
@@ -47,9 +47,9 @@
         <section class="agent-card" aria-label="Criadora de conteudo">
           <div class="agent-orb" aria-hidden="true">L</div>
           <div class="agent-copy">
-            <div class="agent-kicker">Criadora ativa</div>
-            <h2>Lia safadinha</h2>
-            <p>Provocante, carinhosa e sempre restrita a maiores de 18 anos.</p>
+            <div class="agent-kicker">Autopilot ativo</div>
+            <h2>Lia Engine</h2>
+            <p>Respondendo, qualificando e recomendando packs em tempo real.</p>
           </div>
           <span class="agent-pill">18+</span>
         </section>
@@ -70,7 +70,7 @@
 
         <nav id="stage-tabs" class="stage-tabs" aria-label="Etapas do funil"></nav>
         <div class="list-heading">
-          <strong>Conversas</strong>
+          <strong>Fila · quentes primeiro</strong>
           <span id="lead-list-count">0 leads</span>
         </div>
         <div id="lead-list" class="lead-list" aria-live="polite"></div>
@@ -84,6 +84,18 @@
             <p id="lead-meta">A conversa e o historico aparecem aqui.</p>
           </div>
           <div class="topbar-actions">
+            <div class="topbar-stat">
+              <strong>R$ 49</strong>
+              <span>potencial</span>
+            </div>
+            <div class="topbar-stat">
+              <strong>4</strong>
+              <span>msgs</span>
+            </div>
+            <div class="topbar-stat">
+              <strong>Proposta</strong>
+              <span>etapa</span>
+            </div>
             <button class="autopilot-button" type="button" aria-pressed="true">Piloto automatico <span aria-hidden="true"></span></button>
             <select id="stage-select" aria-label="Alterar etapa"></select>
             <button id="mark-done-button" class="ghost-button" type="button">Marcar ganho</button>
@@ -113,35 +125,67 @@
           <div class="section-heading">
             <div>
               <p class="eyebrow">Leads</p>
-              <h3>Base de contatos</h3>
+              <h3>Leads · pipeline</h3>
             </div>
             <button id="new-lead-button-alt" class="primary-button" type="button">Novo lead</button>
           </div>
-          <div class="lead-table-wrap">
-            <table class="lead-table">
-              <thead>
-                <tr>
-                  <th>Contato</th>
-                  <th>Status</th>
-                  <th>Etapa</th>
-                  <th>Preferencia</th>
-                  <th>Ultima mensagem</th>
-                </tr>
-              </thead>
-              <tbody id="lead-table-body"></tbody>
-            </table>
-          </div>
+          <div id="pipeline-board" class="pipeline-board" aria-label="Pipeline de leads"></div>
         </section>
 
         <section id="photos-page" class="photos-page" aria-label="Galeria de fotos">
           <div class="section-heading">
             <div>
               <p class="eyebrow">Fotos</p>
-              <h3>Packs das modelos</h3>
+              <h3>Fotos · biblioteca</h3>
             </div>
             <span class="section-caption">Abra um pack e anexe fotos ou videos</span>
           </div>
           <div id="model-gallery-page" class="model-gallery-page" aria-label="Packs e midias disponiveis"></div>
+        </section>
+
+        <section id="data-page" class="data-page" aria-label="Painel de dados">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Dados</p>
+              <h3>Dados · painel</h3>
+            </div>
+            <span class="section-caption">Hoje</span>
+          </div>
+          <div class="data-metrics">
+            <div><span>Receita estimada</span><strong>R$ 3.333</strong><small>+18% vs. semana anterior</small></div>
+            <div><span>Leads ativos</span><strong>142</strong><small>38 prontos para proposta</small></div>
+            <div><span>Conversao</span><strong>26%</strong><small>+4 pontos</small></div>
+            <div><span>Ticket medio</span><strong>R$ 49</strong><small>pack recomendado</small></div>
+          </div>
+          <div class="data-grid">
+            <section class="chart-panel">
+              <div class="section-heading">
+                <h3>Conversas que viram proposta</h3>
+                <span class="section-caption">ultimos 7 dias</span>
+              </div>
+              <div class="fake-chart" aria-hidden="true">
+                <span style="height: 24%"></span>
+                <span style="height: 38%"></span>
+                <span style="height: 31%"></span>
+                <span style="height: 52%"></span>
+                <span style="height: 44%"></span>
+                <span style="height: 68%"></span>
+                <span style="height: 58%"></span>
+                <span style="height: 82%"></span>
+              </div>
+            </section>
+            <section class="chart-panel">
+              <div class="section-heading">
+                <h3>Perfil de conversao</h3>
+                <span class="section-caption">por sinal</span>
+              </div>
+              <div class="bar-list">
+                <div><span>Intencao alta</span><strong style="width: 86%"></strong><em>86</em></div>
+                <div><span>Responde rapido</span><strong style="width: 64%"></strong><em>64</em></div>
+                <div><span>Quer amostra</span><strong style="width: 51%"></strong><em>51</em></div>
+              </div>
+            </section>
+          </div>
         </section>
 
         <div class="content-grid">
@@ -156,9 +200,9 @@
             </header>
             <div id="chat-feed" class="chat-feed"></div>
             <div class="suggestion-bar">
-              <strong>Lia detectou intencao alta.</strong>
-              <span>Lead pronto para comprar - sugestao: oferecer Pack Premium.</span>
-              <button type="button">Aplicar sugestao</button>
+              <strong>Lia recomenda fechar agora</strong>
+              <span>Enviar Pack Premium · R$ 49. Probabilidade de conversao 82%.</span>
+              <button type="button">Executar</button>
             </div>
             <div class="quick-replies" aria-label="Respostas rapidas">
               <button type="button" data-reply="Sou maior de 18">Sou 18+</button>
@@ -174,6 +218,7 @@
               <button class="send-button" type="submit">Enviar</button>
             </form>
           </section>
+        </div>
 
           <aside class="details-panel" aria-label="Detalhes do lead">
             <section>
@@ -192,6 +237,24 @@
                   <strong id="lead-buying-signal">-</strong>
                 </div>
               </div>
+            </section>
+
+            <section class="lia-signals">
+              <h3>Sinais da Lia</h3>
+              <dl class="signal-list">
+                <div>
+                  <dt>Intencao de compra</dt>
+                  <dd>Alta</dd>
+                </div>
+                <div>
+                  <dt>Sentimento</dt>
+                  <dd>Animado</dd>
+                </div>
+                <div>
+                  <dt>Sensibilidade a preco</dt>
+                  <dd>Media</dd>
+                </div>
+              </dl>
             </section>
 
             <section>
@@ -215,8 +278,8 @@
 
             <section>
               <div class="section-heading">
-                <h3>Packs premium</h3>
-                <span class="section-caption">Abrir & anexar</span>
+                <h3>Packs sugeridos</h3>
+                <span class="section-caption">Ver todos</span>
               </div>
               <div id="model-gallery" class="model-gallery" aria-label="Packs e midias disponiveis"></div>
             </section>
@@ -230,11 +293,10 @@
             </section>
 
             <section>
-              <h3>Proximas acoes</h3>
+              <h3>Proximas acoes da Lia</h3>
               <div id="activity-list" class="activity-list"></div>
             </section>
           </aside>
-        </div>
       </section>
     </main>
 
@@ -276,6 +338,6 @@
       </form>
     </dialog>
 
-    <script src="app.js?v=20260605-02"></script>
+    <script src="app.js?v=20260605-03"></script>
   </body>
 </html>

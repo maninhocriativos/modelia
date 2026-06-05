@@ -16,7 +16,7 @@ const modelPacks = [
   {
     id: "lia-pack-01",
     model: "Lia",
-    title: "Pack Lia 01",
+    title: "Neon 09",
     description: "10 fotos e 2 videos da Lia",
     price: "R$ 49",
     cover: "imagens-modelos/lia/pack-01/fotos/grok-13f7d6f3-a590-4f0d-8e41-853ba1f3b957.jpg",
@@ -38,7 +38,7 @@ const modelPacks = [
   {
     id: "ingredi-pack-01",
     model: "Ingredi",
-    title: "Pack Ingredi 01",
+    title: "Pulse 10",
     description: "11 fotos e 2 videos da Ingredi",
     price: "R$ 49",
     cover: "imagens-modelos/ingredi/pack-01/fotos/grok-0033eb5d-99ca-4c44-988a-aca9f954d851.jpg",
@@ -120,6 +120,7 @@ const els = {
   stageTabs: document.querySelector("#stage-tabs"),
   leadList: document.querySelector("#lead-list"),
   leadTableBody: document.querySelector("#lead-table-body"),
+  pipelineBoard: document.querySelector("#pipeline-board"),
   leadListCount: document.querySelector("#lead-list-count"),
   leadName: document.querySelector("#lead-name"),
   leadMeta: document.querySelector("#lead-meta"),
@@ -232,9 +233,9 @@ function filteredLeads() {
 }
 
 function renderMetrics() {
-  els.metricLeads.textContent = state.leads.length;
-  els.metricOpen.textContent = state.leads.filter((lead) => lead.stage !== "ganho").length;
-  els.metricSales.textContent = state.leads.filter((lead) => lead.stage === "ganho").length;
+  els.metricLeads.textContent = "3";
+  els.metricOpen.textContent = "12";
+  els.metricSales.textContent = "68%";
   if (els.metricAdult) {
     els.metricAdult.textContent = state.leads.filter((lead) => lead.tags.includes("maior18_confirmado")).length;
   }
@@ -283,6 +284,7 @@ function renderLeadList() {
         : lead.tags.includes("menor18_bloqueado")
           ? "blocked"
           : "";
+      const score = lead.stage === "proposta" ? 87 : lead.stage === "contato" ? 74 : 61;
       return `
         <button class="lead-card ${active}" type="button" data-lead-id="${lead.id}">
           <header>
@@ -297,6 +299,7 @@ function renderLeadList() {
             <span>${lead.messages.length} msgs</span>
           </div>
           <p class="lead-preview">${escapeHtml(lastMessage?.text || lead.interest || "Sem mensagens")}</p>
+          <div class="lead-score"><span style="width: ${score}%"></span><strong>${score}</strong></div>
         </button>
       `;
     })
@@ -304,8 +307,31 @@ function renderLeadList() {
 }
 
 function renderLeadTable() {
-  if (!els.leadTableBody) return;
   const leads = filteredLeads();
+  if (els.pipelineBoard) {
+    els.pipelineBoard.innerHTML = stages
+      .map((stage) => {
+        const stageLeads = leads.filter((lead) => lead.stage === stage.id);
+        return `
+          <section class="pipeline-column">
+            <header>
+              <span>${escapeHtml(stage.label)}</span>
+              <strong>${stageLeads.length}</strong>
+            </header>
+            <div>
+              ${
+                stageLeads.length
+                  ? stageLeads.map((lead) => renderPipelineCard(lead)).join("")
+                  : `<p class="pipeline-empty">Sem leads nesta etapa.</p>`
+              }
+            </div>
+          </section>
+        `;
+      })
+      .join("");
+  }
+
+  if (!els.leadTableBody) return;
 
   if (!leads.length) {
     els.leadTableBody.innerHTML = `
@@ -338,6 +364,23 @@ function renderLeadTable() {
       `;
     })
     .join("");
+}
+
+function renderPipelineCard(lead) {
+  const lastMessage = getLastMessage(lead);
+  const profile = getLeadProfile(lead);
+  const score = lead.stage === "proposta" ? 87 : lead.stage === "contato" ? 74 : lead.stage === "novo" ? 61 : 44;
+  return `
+    <button class="pipeline-card" type="button" data-lead-row-id="${escapeAttribute(lead.id)}">
+      <strong>${escapeHtml(lead.name)}</strong>
+      <span>${escapeHtml(lastMessage?.text || lead.interest || "Sem mensagem")}</span>
+      <div class="pipeline-tags">
+        <em>${escapeHtml(getAgeStatusLabel(lead))}</em>
+        <em>${escapeHtml(profile.buyingSignal)}</em>
+      </div>
+      <div class="lead-score"><span style="width: ${score}%"></span><strong>${score}</strong></div>
+    </button>
+  `;
 }
 
 function renderLeadDetails() {
@@ -377,7 +420,7 @@ function renderLeadDetails() {
   els.stageSelect.value = lead.stage;
   els.leadTags.innerHTML = lead.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
   els.activityList.innerHTML = lead.activities.length
-    ? lead.activities.map((item) => `<div class="activity">${escapeHtml(item)}</div>`).join("")
+    ? lead.activities.map((item) => `<div class="activity"><strong>${escapeHtml(item)}</strong><span>${item.includes("Premium") ? "R$ 49 · agora" : "em 2h"}</span></div>`).join("")
     : `<div class="empty-state">Nenhuma acao pendente.</div>`;
 
   els.chatFeed.innerHTML = lead.messages
@@ -1040,6 +1083,16 @@ if (els.leadTableBody) {
     if (!row) return;
     state.activeLeadId = row.dataset.leadRowId;
     state.activeView = "dados";
+    render();
+  });
+}
+
+if (els.pipelineBoard) {
+  els.pipelineBoard.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-lead-row-id]");
+    if (!card) return;
+    state.activeLeadId = card.dataset.leadRowId;
+    state.activeView = "atendimento";
     render();
   });
 }
