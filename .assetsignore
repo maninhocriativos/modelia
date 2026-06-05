@@ -1,0 +1,6 @@
+.git/
+.screenshots/
+.wrangler/
+.deploy/
+node_modules/
+*.png

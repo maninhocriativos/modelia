@@ -1,0 +1,9 @@
+name = "modelia"
+pages_build_output_dir = "."
+compatibility_date = "2026-06-02"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "modelia"
+database_id = "1887f592-6f17-4860-b98b-110bb9928ef7"
+migrations_dir = "migrations"

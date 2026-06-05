@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modelia CRM</title>
+    <link rel="stylesheet" href="styles.css?v=20260605-01" />
+  </head>
+  <body data-view="atendimento">
+    <main class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">M</div>
+          <div>
+            <h1>Modelia</h1>
+            <p>CRM para conteudo adulto</p>
+          </div>
+        </div>
+
+        <nav class="app-nav" aria-label="Areas do CRM">
+          <button class="active" type="button" data-view="atendimento"><span class="nav-icon nav-icon-home" aria-hidden="true"></span>Atendimento</button>
+          <button type="button" data-view="chat"><span class="nav-icon nav-icon-chat" aria-hidden="true"></span>Chat</button>
+          <button type="button" data-view="leads"><span class="nav-icon nav-icon-leads" aria-hidden="true"></span>Leads</button>
+          <button type="button" data-view="fotos"><span class="nav-icon nav-icon-photos" aria-hidden="true"></span>Fotos</button>
+          <button type="button" data-view="dados"><span class="nav-icon nav-icon-data" aria-hidden="true"></span>Dados</button>
+        </nav>
+
+        <section class="metrics" aria-label="Resumo do CRM">
+          <div>
+            <strong id="metric-leads">0</strong>
+            <span>leads</span>
+          </div>
+          <div>
+            <strong id="metric-open">0</strong>
+            <span>abertos</span>
+          </div>
+          <div>
+            <strong id="metric-sales">0</strong>
+            <span>ganhos</span>
+          </div>
+          <div>
+            <strong id="metric-adult">0</strong>
+            <span>18+</span>
+          </div>
+        </section>
+
+        <section class="agent-card" aria-label="Criadora de conteudo">
+          <div class="agent-orb" aria-hidden="true">L</div>
+          <div class="agent-copy">
+            <div class="agent-kicker">Criadora ativa</div>
+            <h2>Lia safadinha</h2>
+            <p>Provocante, carinhosa e sempre restrita a maiores de 18 anos.</p>
+          </div>
+          <span class="agent-pill">18+</span>
+        </section>
+
+        <div class="toolbar">
+          <label class="search">
+            <span>Buscar</span>
+            <input id="search-input" type="search" placeholder="Nome, telefone ou tag" />
+          </label>
+          <button id="new-lead-button" class="primary-button" type="button">+ Novo lead</button>
+        </div>
+
+        <nav class="public-links" aria-label="Links publicos">
+          <a href="privacidade.html" target="_blank" rel="noreferrer">Privacidade</a>
+          <a href="termos.html" target="_blank" rel="noreferrer">Termos</a>
+          <a href="exclusao-dados.html" target="_blank" rel="noreferrer">Exclusao de dados</a>
+        </nav>
+
+        <nav id="stage-tabs" class="stage-tabs" aria-label="Etapas do funil"></nav>
+        <div class="list-heading">
+          <strong>Conversas</strong>
+          <span id="lead-list-count">0 leads</span>
+        </div>
+        <div id="lead-list" class="lead-list" aria-live="polite"></div>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Atendimento</p>
+            <h2 id="lead-name">Selecione um lead</h2>
+            <p id="lead-meta">A conversa e o historico aparecem aqui.</p>
+          </div>
+          <div class="topbar-actions">
+            <select id="stage-select" aria-label="Alterar etapa"></select>
+            <button id="mark-done-button" class="ghost-button" type="button">Marcar ganho</button>
+          </div>
+        </header>
+
+        <section class="contact-summary" aria-label="Resumo do contato">
+          <div>
+            <span>Telefone</span>
+            <strong id="summary-phone">-</strong>
+          </div>
+          <div>
+            <span>Origem</span>
+            <strong id="summary-source">-</strong>
+          </div>
+          <div>
+            <span>Status</span>
+            <strong id="summary-age">Aguardando 18+</strong>
+          </div>
+          <div>
+            <span>Ultima interacao</span>
+            <strong id="summary-last-message">-</strong>
+          </div>
+        </section>
+
+        <section id="leads-page" class="leads-page" aria-label="Lista detalhada de leads">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Leads</p>
+              <h3>Base de contatos</h3>
+            </div>
+            <button id="new-lead-button-alt" class="primary-button" type="button">Novo lead</button>
+          </div>
+          <div class="lead-table-wrap">
+            <table class="lead-table">
+              <thead>
+                <tr>
+                  <th>Contato</th>
+                  <th>Status</th>
+                  <th>Etapa</th>
+                  <th>Preferencia</th>
+                  <th>Ultima mensagem</th>
+                </tr>
+              </thead>
+              <tbody id="lead-table-body"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="photos-page" class="photos-page" aria-label="Galeria de fotos">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Fotos</p>
+              <h3>Packs das modelos</h3>
+            </div>
+            <span class="section-caption">Abra um pack e anexe fotos ou videos</span>
+          </div>
+          <div id="model-gallery-page" class="model-gallery-page" aria-label="Packs e midias disponiveis"></div>
+        </section>
+
+        <div class="content-grid">
+          <section class="chat-panel" aria-label="Chat">
+            <header class="chat-header">
+              <div class="chat-avatar" aria-hidden="true">L</div>
+              <div>
+                <strong id="chat-contact-name">Lia safadinha</strong>
+                <span id="chat-contact-status">Aguardando confirmacao 18+</span>
+              </div>
+              <span id="sync-status" class="sync-status">Sincronizando</span>
+            </header>
+            <div id="chat-feed" class="chat-feed"></div>
+            <div class="quick-replies" aria-label="Respostas rapidas">
+              <button type="button" data-reply="Sou maior de 18">Sou 18+</button>
+              <button type="button" data-reply="Sou menor de 18">Menor</button>
+              <button type="button" data-reply="Gosto de um clima mais provocante">Provocante</button>
+              <button type="button" data-reply="Manda uma amostrinha">Amostra</button>
+            </div>
+            <form id="message-form" class="composer">
+              <div class="composer-fields">
+                <input id="message-input" type="text" placeholder="Digite uma mensagem..." autocomplete="off" />
+                <input id="media-input" type="url" placeholder="URL da midia opcional" autocomplete="off" />
+              </div>
+              <button class="send-button" type="submit">Enviar</button>
+            </form>
+          </section>
+
+          <aside class="details-panel" aria-label="Detalhes do lead">
+            <section>
+              <h3>Perfil do lead</h3>
+              <div class="profile-grid">
+                <div>
+                  <span>Preferencia</span>
+                  <strong id="lead-preference">-</strong>
+                </div>
+                <div>
+                  <span>Formato</span>
+                  <strong id="lead-format">-</strong>
+                </div>
+                <div>
+                  <span>Sinal de compra</span>
+                  <strong id="lead-buying-signal">-</strong>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h3>Dados</h3>
+              <dl class="details-list">
+                <div>
+                  <dt>Telefone</dt>
+                  <dd id="lead-phone">-</dd>
+                </div>
+                <div>
+                  <dt>Interesse</dt>
+                  <dd id="lead-interest">-</dd>
+                </div>
+                <div>
+                  <dt>Origem</dt>
+                  <dd id="lead-source">-</dd>
+                </div>
+              </dl>
+              <div id="lead-tags" class="tag-row"></div>
+            </section>
+
+            <section>
+              <div class="section-heading">
+                <h3>Packs das modelos</h3>
+                <span class="section-caption">Abra e anexe</span>
+              </div>
+              <div id="model-gallery" class="model-gallery" aria-label="Packs e midias disponiveis"></div>
+            </section>
+
+            <section>
+              <div class="section-heading">
+                <h3>Notas</h3>
+                <button id="save-note-button" class="text-button" type="button">Salvar</button>
+              </div>
+              <textarea id="note-input" rows="7" placeholder="Resumo, proximos passos, preferencias..."></textarea>
+            </section>
+
+            <section>
+              <h3>Proximas acoes</h3>
+              <div id="activity-list" class="activity-list"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="lead-dialog">
+      <form id="lead-form" method="dialog">
+        <div class="dialog-header">
+          <h2>Novo lead</h2>
+          <button class="icon-button" value="cancel" aria-label="Fechar" type="submit">x</button>
+        </div>
+        <label>
+          Nome
+          <input name="name" required placeholder="Ex: Ana Silva" />
+        </label>
+        <label>
+          Telefone
+          <input name="phone" required placeholder="(92) 99999-9999" />
+        </label>
+        <label>
+          Interesse
+          <input name="interest" required placeholder="Ex: Ensaio fotografico" />
+        </label>
+        <label>
+          Origem
+          <select name="source">
+            <option>WhatsApp</option>
+            <option>Instagram</option>
+            <option>Site</option>
+            <option>Indicacao</option>
+          </select>
+        </label>
+        <label>
+          Tags
+          <input name="tags" placeholder="vip, urgente, retorno" />
+        </label>
+        <div class="dialog-actions">
+          <button class="ghost-button" value="cancel" type="submit">Cancelar</button>
+          <button class="primary-button" value="default" type="submit">Criar lead</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js?v=20260605-01"></script>
+  </body>
+</html>
