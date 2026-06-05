@@ -2828,10 +2828,42 @@ body {
   grid-template-rows: minmax(0, 1fr) auto auto auto;
 }
 
+body[data-chat-empty="true"] .chat-panel {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+body[data-chat-empty="true"] .suggestion-bar,
+body[data-chat-empty="true"] .quick-replies {
+  display: none;
+}
+
 .chat-feed {
   gap: 28px;
   padding: 52px 24px 22px;
   background: #070910;
+}
+
+.chat-empty-state {
+  align-self: center;
+  justify-self: center;
+  display: grid;
+  gap: 8px;
+  min-height: auto;
+  max-width: 360px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #0b0f16;
+  padding: 20px;
+  color: #a7b1ac;
+}
+
+.chat-empty-state strong {
+  color: #f5fff9;
+}
+
+.chat-empty-state span {
+  color: #8991a1;
+  line-height: 1.5;
 }
 
 .chat-feed::before {
@@ -2881,6 +2913,14 @@ body {
 .suggestion-bar button {
   border-radius: 8px;
   padding: 10px 18px;
+  white-space: nowrap;
+}
+
+#send-audio-preview-button,
+#request-call-button {
+  border: 1px solid rgba(35, 235, 161, 0.28);
+  background: rgba(7, 9, 16, 0.74);
+  color: var(--brand);
 }
 
 .quick-replies {

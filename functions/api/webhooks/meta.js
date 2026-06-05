@@ -1,5 +1,5 @@
 import { createId, json, readJson } from "../../_lib/http.js";
-import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, mergeAgeTags, sendMetaAudioMessage, sendMetaMessage } from "../../_lib/lia-agent.js";
+import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, sendMetaAudioMessage, sendMetaMessage } from "../../_lib/lia-agent.js";
 import { parseJson } from "../../_lib/leads.js";
 
 export async function onRequestGet({ env, request }) {
@@ -321,7 +321,8 @@ async function sendAutomaticReply(env, request, contact) {
     .all();
 
   const sampleUrl = buildSampleImageUrl(env, request);
-  const replies = await buildLiaRepliesWithAi(env, contact, rows.results || [], { sampleUrl });
+  const sampleVideoUrl = buildSampleVideoUrl(env, request);
+  const replies = await buildLiaRepliesWithAi(env, contact, rows.results || [], { sampleUrl, sampleVideoUrl });
 
   const expandedReplies = limitReplies(replies);
   if (!expandedReplies.length) {
@@ -384,6 +385,16 @@ async function sendAutomaticReply(env, request, contact) {
         result.ok ? "sent" : "failed"
       )
       .run();
+
+    if (reply.sampleVideoUrl) {
+      const videoReply = {
+        text: "E essa e uma previa em video do clima do pack.",
+        mediaUrl: reply.sampleVideoUrl,
+        mediaType: "video",
+      };
+      const videoResult = await sendMetaMessage(env, contact.phone, videoReply);
+      await insertOutboundMessage(env, contact.id, videoReply, videoResult, "meta-auto");
+    }
   }
 }
 
@@ -634,6 +645,11 @@ function buildSampleImageUrl(env, request) {
   const imageNumber = Math.floor(Math.random() * imageCount) + 1;
   const filename = String(imageNumber).padStart(2, "0");
   return new URL(`/imagens-modelos/webp/modelo-${filename}.webp`, request.url).toString();
+}
+
+function buildSampleVideoUrl(env, request) {
+  if (env.LIA_SAMPLE_VIDEO_URL) return env.LIA_SAMPLE_VIDEO_URL;
+  return new URL(LIA_SAMPLE_VIDEO_PATH, request.url).toString();
 }
 
 function hasExplicitAudioRequest(text) {

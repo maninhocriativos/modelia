@@ -1,4 +1,5 @@
 export const LIA_SAMPLE_IMAGE_PATH = "/imagens-modelos/lia-amostra-01.png";
+export const LIA_SAMPLE_VIDEO_PATH = "/imagens-modelos/lia/pack-01/videos/grok-69f84467-0e85-4ae5-8d3a-7aec2b6f6aec.mp4";
 
 export const AGE_TAGS = {
   adult: "maior18_confirmado",
@@ -84,6 +85,7 @@ export function buildLiaReplies(contact, messages = [], options = {}) {
   const name = firstName(contact?.name);
   const memory = getMemory(contact, messages);
   const sampleUrl = options.sampleUrl || LIA_SAMPLE_IMAGE_PATH;
+  const sampleVideoUrl = options.sampleVideoUrl || LIA_SAMPLE_VIDEO_PATH;
   const packChoice = classifyPackReply(text);
 
   if (memory.isMinor || classifyAgeReply(text) === "minor") {
@@ -111,7 +113,7 @@ export function buildLiaReplies(contact, messages = [], options = {}) {
   }
 
   if (isExplicitSampleRequest(text)) {
-    return [buildSampleMessage(name, sampleUrl)];
+    return [buildSampleMessage(name, sampleUrl, sampleVideoUrl)];
   }
 
   if (packChoice) {
@@ -131,7 +133,7 @@ export function buildLiaReplies(contact, messages = [], options = {}) {
   }
 
   if (!memory.sampleSent && shouldSendSample(text, messages)) {
-    return [buildSampleMessage(name, sampleUrl)];
+    return [buildSampleMessage(name, sampleUrl, sampleVideoUrl)];
   }
 
   if (memory.sampleSent && !readyToSell(messages, text)) {
@@ -203,6 +205,7 @@ function buildGuardedReply(contact, messages = [], options = {}) {
   const name = firstName(contact?.name);
   const memory = getMemory(contact, messages);
   const sampleUrl = options.sampleUrl || LIA_SAMPLE_IMAGE_PATH;
+  const sampleVideoUrl = options.sampleVideoUrl || LIA_SAMPLE_VIDEO_PATH;
 
   if (memory.isMinor || classifyAgeReply(text) === "minor") {
     return [{ text: "Obrigada por ser sincero comigo. Meu conteudo e so para maiores de 18 anos, entao vou encerrar por aqui." }];
@@ -227,7 +230,7 @@ function buildGuardedReply(contact, messages = [], options = {}) {
   }
 
   if (memory.isAdult && isExplicitSampleRequest(text)) {
-    return [buildSampleMessage(name, sampleUrl)];
+    return [buildSampleMessage(name, sampleUrl, sampleVideoUrl)];
   }
 
   return null;
@@ -239,10 +242,11 @@ async function buildAutonomousLiaReplies(env, contact, messages = [], options = 
 
   const name = firstName(contact?.name);
   const sampleUrl = options.sampleUrl || LIA_SAMPLE_IMAGE_PATH;
+  const sampleVideoUrl = options.sampleVideoUrl || LIA_SAMPLE_VIDEO_PATH;
   const text = compactLiaText(decision.reply_text || "");
 
   if (decision.action === "send_sample") {
-    return [{ text, mediaUrl: sampleUrl, mediaType: "image" }];
+    return [{ text, mediaUrl: sampleUrl, mediaType: "image", sampleVideoUrl }];
   }
 
   if (decision.action === "generate_image") {
@@ -647,6 +651,17 @@ function buildMetaPayload(to, message) {
     to,
   };
 
+  if (message.mediaUrl && message.mediaType === "video") {
+    return {
+      ...base,
+      type: "video",
+      video: {
+        link: message.mediaUrl,
+        ...(message.text ? { caption: message.text } : {}),
+      },
+    };
+  }
+
   if (message.mediaUrl) {
     return {
       ...base,
@@ -714,11 +729,12 @@ function buildPromiseMessage(name, text) {
   };
 }
 
-function buildSampleMessage(name, sampleUrl) {
+function buildSampleMessage(name, sampleUrl, sampleVideoUrl = "") {
   return {
     text: `Gostei do que voce me contou${name}. Separei uma amostrinha gratis minha pra voce sentir o clima. Se quiser mais, me fala "quero ver mais".`,
     mediaUrl: sampleUrl,
     mediaType: "image",
+    sampleVideoUrl,
   };
 }
 
@@ -1000,6 +1016,7 @@ function isSampleMessage(message) {
     mediaUrl.includes("modelo-01") ||
     mediaUrl.includes("lia-amostra") ||
     mediaType === "image" ||
+    mediaType === "video" ||
     /\.(png|jpe?g|webp)(\?|$)/i.test(mediaUrl)
   );
 }

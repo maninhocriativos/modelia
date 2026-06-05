@@ -158,6 +158,8 @@ const els = {
   noteInput: document.querySelector("#note-input"),
   saveNoteButton: document.querySelector("#save-note-button"),
   activityList: document.querySelector("#activity-list"),
+  sendAudioPreviewButton: document.querySelector("#send-audio-preview-button"),
+  requestCallButton: document.querySelector("#request-call-button"),
   leadDialog: document.querySelector("#lead-dialog"),
   leadForm: document.querySelector("#lead-form"),
 };
@@ -483,6 +485,7 @@ function renderLeadDetails() {
     : `<div class="empty-state">Nenhuma acao pendente.</div>`;
 
   const visibleMessages = lead.messages || [];
+  document.body.dataset.chatEmpty = visibleMessages.length ? "false" : "true";
   els.chatFeed.innerHTML = visibleMessages.length
     ? visibleMessages.map((message) => {
       const direction = message.from === "agent" ? "outbound" : "inbound";
@@ -503,7 +506,7 @@ function renderLeadDetails() {
         </article>
       `;
     }).join("")
-    : `<div class="empty-state">Este lead ainda nao tem historico de mensagens salvo.</div>`;
+    : `<div class="empty-state chat-empty-state"><strong>Sem historico salvo</strong><span>Quando este lead responder pelo WhatsApp, as mensagens aparecem aqui em ordem real.</span></div>`;
   els.chatFeed.scrollTop = els.chatFeed.scrollHeight;
 }
 
@@ -1322,6 +1325,41 @@ els.saveNoteButton.addEventListener("click", async () => {
   await persistLeadUpdate(lead, { notes: els.noteInput.value });
   render();
 });
+
+if (els.sendAudioPreviewButton) {
+  els.sendAudioPreviewButton.addEventListener("click", async () => {
+    const lead = getActiveLead();
+    if (!lead || !state.apiEnabled) return;
+
+    renderSyncStatus("Enviando audio...");
+    try {
+      await api(`/api/leads/${encodeURIComponent(lead.id)}/audio`, {
+        method: "POST",
+        body: JSON.stringify({
+          text: `Oi, ${lead.name.split(/\s+/)[0] || ""}. Vou te mandar uma previa rapidinha em audio do clima do pack.`,
+        }),
+      });
+      await refreshLeads({ force: true });
+    } catch {
+      renderSyncStatus("Audio falhou");
+    }
+  });
+}
+
+if (els.requestCallButton) {
+  els.requestCallButton.addEventListener("click", async () => {
+    const lead = getActiveLead();
+    if (!lead || !state.apiEnabled) return;
+
+    renderSyncStatus("Solicitando ligacao...");
+    try {
+      await api(`/api/leads/${encodeURIComponent(lead.id)}/call`, { method: "POST" });
+      await refreshLeads({ force: true });
+    } catch {
+      renderSyncStatus("Ligacao falhou");
+    }
+  });
+}
 
 els.newLeadButton.addEventListener("click", () => {
   els.leadDialog.showModal();

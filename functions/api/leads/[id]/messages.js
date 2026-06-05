@@ -1,5 +1,5 @@
 import { createId, json, readJson } from "../../../_lib/http.js";
-import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, mergeAgeTags, sendMetaMessage } from "../../../_lib/lia-agent.js";
+import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, sendMetaMessage } from "../../../_lib/lia-agent.js";
 import { parseJson } from "../../../_lib/leads.js";
 
 export async function onRequestPost({ env, params, request }) {
@@ -22,7 +22,7 @@ export async function onRequestPost({ env, params, request }) {
 
   if (direction === "outbound") {
     provider = "meta";
-    const result = await sendMetaMessage(env, contact.phone, { text, mediaUrl });
+    const result = await sendMetaMessage(env, contact.phone, { text, mediaUrl, mediaType });
     providerMessageId = result.providerMessageId;
     status = result.ok ? "sent" : "failed";
     providerError = result.error;
@@ -67,7 +67,8 @@ async function sendAutomaticReply(env, request, contact) {
     .bind(contact.id)
     .all();
   const sampleUrl = new URL(LIA_SAMPLE_IMAGE_PATH, request.url).toString();
-  const replies = await buildLiaRepliesWithAi(env, contact, rows.results || [], { sampleUrl });
+  const sampleVideoUrl = new URL(LIA_SAMPLE_VIDEO_PATH, request.url).toString();
+  const replies = await buildLiaRepliesWithAi(env, contact, rows.results || [], { sampleUrl, sampleVideoUrl });
   const reply = Array.isArray(replies) ? replies.find(Boolean) : null;
 
   if (!reply) return;
@@ -87,4 +88,27 @@ async function sendAutomaticReply(env, request, contact) {
       result.ok ? "sent" : "failed"
     )
     .run();
+
+  if (reply.sampleVideoUrl) {
+    const videoReply = {
+      text: "E essa e uma previa em video do clima do pack.",
+      mediaUrl: reply.sampleVideoUrl,
+      mediaType: "video",
+    };
+    const videoResult = await sendMetaMessage(env, contact.phone, videoReply);
+    await env.DB.prepare(
+      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
+       VALUES (?, ?, 'outbound', ?, ?, ?, 'meta-auto', ?, ?)`
+    )
+      .bind(
+        createId("msg"),
+        contact.id,
+        videoReply.text,
+        videoReply.mediaUrl,
+        videoReply.mediaType,
+        videoResult.providerMessageId,
+        videoResult.ok ? "sent" : "failed"
+      )
+      .run();
+  }
 }
