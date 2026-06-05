@@ -21,7 +21,7 @@
           <button class="active" type="button" data-view="atendimento"><span class="nav-icon nav-icon-home" aria-hidden="true"></span>Atendimento</button>
           <button type="button" data-view="chat"><span class="nav-icon nav-icon-chat" aria-hidden="true"></span>Chat</button>
           <button type="button" data-view="leads"><span class="nav-icon nav-icon-leads" aria-hidden="true"></span>Leads</button>
-          <button type="button" data-view="fotos"><span class="nav-icon nav-icon-photos" aria-hidden="true"></span>Fotos</button>
+          <button type="button" data-view="fotos"><span class="nav-icon nav-icon-photos" aria-hidden="true"></span>Packs</button>
           <button type="button" data-view="dados"><span class="nav-icon nav-icon-data" aria-hidden="true"></span>Dados</button>
         </nav>
 
@@ -135,11 +135,32 @@
         <section id="photos-page" class="photos-page" aria-label="Galeria de fotos">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Fotos</p>
-              <h3>Fotos · biblioteca</h3>
+              <p class="eyebrow">Packs</p>
+              <h3>Packs · biblioteca</h3>
             </div>
-            <span class="section-caption">Abra um pack e anexe fotos ou videos</span>
+            <span class="section-caption">Cadastre, abra e anexe fotos ou videos</span>
           </div>
+          <form id="pack-form" class="pack-form">
+            <div>
+              <label>
+                Nome do pack
+                <input name="title" required placeholder="Ex: Ensaio Neon 11" />
+              </label>
+              <label>
+                Modelo
+                <input name="model" required placeholder="Ex: Lia" />
+              </label>
+              <label>
+                Preco
+                <input name="price" required placeholder="Ex: R$ 49" />
+              </label>
+            </div>
+            <label>
+              Imagens e videos
+              <input name="files" type="file" accept="image/*,video/*" multiple required />
+            </label>
+            <button class="primary-button" type="submit">Cadastrar pack</button>
+          </form>
           <div id="model-gallery-page" class="model-gallery-page" aria-label="Packs e midias disponiveis"></div>
         </section>
 
@@ -152,10 +173,10 @@
             <span class="section-caption">Hoje</span>
           </div>
           <div class="data-metrics">
-            <div><span>Receita estimada</span><strong>R$ 3.333</strong><small>+18% vs. semana anterior</small></div>
-            <div><span>Leads ativos</span><strong>142</strong><small>38 prontos para proposta</small></div>
-            <div><span>Conversao</span><strong>26%</strong><small>+4 pontos</small></div>
-            <div><span>Ticket medio</span><strong>R$ 49</strong><small>pack recomendado</small></div>
+            <div><span>Receita estimada</span><strong id="data-revenue">R$ 0</strong><small id="data-revenue-note">com base nos ganhos</small></div>
+            <div><span>Leads ativos</span><strong id="data-active-leads">0</strong><small id="data-active-note">em atendimento</small></div>
+            <div><span>Conversao</span><strong id="data-conversion">0%</strong><small id="data-conversion-note">ganhos / total</small></div>
+            <div><span>Ticket medio</span><strong id="data-ticket">R$ 49</strong><small>pack recomendado</small></div>
           </div>
           <div class="data-grid">
             <section class="chart-panel">

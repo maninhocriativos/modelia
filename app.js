@@ -12,7 +12,7 @@ const liaPacks = [
   { id: "pack_20_fotos_1_video", title: "20 fotos + video", description: "R$59,90" },
 ];
 
-const modelPacks = [
+const builtInModelPacks = [
   {
     id: "lia-pack-01",
     model: "Lia",
@@ -97,6 +97,7 @@ const initialLeads = [
 
 const state = {
   leads: [],
+  mediaPacks: [],
   activeStage: "todos",
   activeLeadId: null,
   activeView: "atendimento",
@@ -146,6 +147,14 @@ const els = {
   leadBuyingSignal: document.querySelector("#lead-buying-signal"),
   modelGallery: document.querySelector("#model-gallery"),
   modelGalleryPage: document.querySelector("#model-gallery-page"),
+  packForm: document.querySelector("#pack-form"),
+  dataRevenue: document.querySelector("#data-revenue"),
+  dataRevenueNote: document.querySelector("#data-revenue-note"),
+  dataActiveLeads: document.querySelector("#data-active-leads"),
+  dataActiveNote: document.querySelector("#data-active-note"),
+  dataConversion: document.querySelector("#data-conversion"),
+  dataConversionNote: document.querySelector("#data-conversion-note"),
+  dataTicket: document.querySelector("#data-ticket"),
   noteInput: document.querySelector("#note-input"),
   saveNoteButton: document.querySelector("#save-note-button"),
   activityList: document.querySelector("#activity-list"),
@@ -178,6 +187,26 @@ function loadLocalLeads() {
   }
 }
 
+function loadLocalPacks() {
+  const stored = localStorage.getItem("modelia-crm-media-packs");
+  if (!stored) return [];
+
+  try {
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalPacks() {
+  localStorage.setItem("modelia-crm-media-packs", JSON.stringify(state.mediaPacks));
+}
+
+function getAllModelPacks() {
+  return [...builtInModelPacks, ...state.mediaPacks];
+}
+
 function saveLocalLeads() {
   localStorage.setItem("modelia-crm-leads", JSON.stringify(state.leads));
 }
@@ -191,6 +220,15 @@ async function loadLeads() {
   } catch {
     state.leads = loadLocalLeads();
     state.apiEnabled = false;
+  }
+}
+
+async function loadPacks() {
+  try {
+    const payload = await api("/api/packs");
+    state.mediaPacks = Array.isArray(payload.packs) ? payload.packs : [];
+  } catch {
+    state.mediaPacks = loadLocalPacks();
   }
 }
 
@@ -233,12 +271,33 @@ function filteredLeads() {
 }
 
 function renderMetrics() {
-  els.metricLeads.textContent = "3";
-  els.metricOpen.textContent = "12";
-  els.metricSales.textContent = "68%";
+  const activeLeads = state.leads.filter((lead) => lead.stage !== "ganho").length;
+  const totalMessages = state.leads.reduce((total, lead) => total + (lead.messages?.length || 0), 0);
+  const wonLeads = state.leads.filter((lead) => lead.stage === "ganho").length;
+  const conversion = state.leads.length ? Math.round((wonLeads / state.leads.length) * 100) : 0;
+
+  els.metricLeads.textContent = activeLeads;
+  els.metricOpen.textContent = totalMessages;
+  els.metricSales.textContent = `${conversion}%`;
   if (els.metricAdult) {
     els.metricAdult.textContent = state.leads.filter((lead) => lead.tags.includes("maior18_confirmado")).length;
   }
+}
+
+function renderDataDashboard() {
+  const totalLeads = state.leads.length;
+  const wonLeads = state.leads.filter((lead) => lead.stage === "ganho").length;
+  const activeLeads = state.leads.filter((lead) => lead.stage !== "ganho").length;
+  const conversion = totalLeads ? Math.round((wonLeads / totalLeads) * 100) : 0;
+  const estimatedRevenue = wonLeads * 49;
+
+  if (els.dataRevenue) els.dataRevenue.textContent = formatCurrency(estimatedRevenue);
+  if (els.dataRevenueNote) els.dataRevenueNote.textContent = `${wonLeads} leads ganhos`;
+  if (els.dataActiveLeads) els.dataActiveLeads.textContent = activeLeads;
+  if (els.dataActiveNote) els.dataActiveNote.textContent = `${totalLeads} leads no total`;
+  if (els.dataConversion) els.dataConversion.textContent = `${conversion}%`;
+  if (els.dataConversionNote) els.dataConversionNote.textContent = `${wonLeads}/${totalLeads || 0} ganhos`;
+  if (els.dataTicket) els.dataTicket.textContent = "R$ 49";
 }
 
 function renderActiveView() {
@@ -423,8 +482,9 @@ function renderLeadDetails() {
     ? lead.activities.map((item) => `<div class="activity"><strong>${escapeHtml(item)}</strong><span>${item.includes("Premium") ? "R$ 49 · agora" : "em 2h"}</span></div>`).join("")
     : `<div class="empty-state">Nenhuma acao pendente.</div>`;
 
-  els.chatFeed.innerHTML = lead.messages
-    .map((message) => {
+  const visibleMessages = lead.messages || [];
+  els.chatFeed.innerHTML = visibleMessages.length
+    ? visibleMessages.map((message) => {
       const direction = message.from === "agent" ? "outbound" : "inbound";
       const mediaUrl = getMessageMediaUrl(message);
       const mediaType = String(message.mediaType || message.media_type || "");
@@ -437,19 +497,20 @@ function renderLeadDetails() {
       return `
         <article class="message ${direction}">
           ${media}
-          ${message.text ? `<p>${escapeHtml(message.text)}</p>` : ""}
+          ${message.text ? `<p>${escapeHtml(message.text)}</p>` : `<p>${message.from === "client" ? "Mensagem recebida pelo WhatsApp." : "Registro sem texto."}</p>`}
           ${packCards}
           <time>${escapeHtml(message.at || "")}${renderMessageStatus(message)}</time>
         </article>
       `;
-    })
-    .join("");
+    }).join("")
+    : `<div class="empty-state">Este lead ainda nao tem historico de mensagens salvo.</div>`;
   els.chatFeed.scrollTop = els.chatFeed.scrollHeight;
 }
 
 function getMessageMediaUrl(message) {
   const value = String(message.mediaUrl || message.media_url || "").trim();
   if (!value || value.startsWith("meta-media:")) return "";
+  if (value.startsWith("data:") || value.startsWith("blob:")) return value;
   if (/^https?:\/\//i.test(value)) return value;
   return getPublicPhotoUrl(value.replace(/^\/+/, ""));
 }
@@ -496,6 +557,7 @@ function renderStageSelect() {
 
 function renderModelGallery() {
   const origin = getPublicOrigin();
+  const modelPacks = getAllModelPacks();
   const activePack = modelPacks.find((pack) => pack.id === state.activeMediaPackId);
   const galleryHtml = activePack ? renderPackMedia(activePack, origin) : renderMediaPackCards();
 
@@ -506,6 +568,7 @@ function renderModelGallery() {
 }
 
 function renderMediaPackCards() {
+  const modelPacks = getAllModelPacks();
   return modelPacks
     .map((pack) => {
       return `
@@ -535,7 +598,7 @@ function renderPackMedia(pack, origin) {
     </div>
     ${pack.media
       .map((item) => {
-        const publicUrl = `${origin}/${item.path}`;
+        const publicUrl = item.path.startsWith("data:") || item.path.startsWith("blob:") ? item.path : `${origin}/${item.path}`;
         const preview =
           item.type === "video"
             ? `<span class="model-card-preview" data-fallback="Adicionar video"><video src="${escapeAttribute(item.path)}" preload="metadata" muted playsinline onerror="this.parentElement.classList.add('is-empty'); this.remove();"></video><span class="media-badge">Video</span><span class="media-lock" aria-hidden="true">▷</span></span>`
@@ -589,6 +652,7 @@ function render() {
   renderStageSelect();
   renderModelGallery();
   renderLeadDetails();
+  renderDataDashboard();
   renderSyncStatus();
   renderActiveView();
 }
@@ -1043,7 +1107,83 @@ function getMediaTypeFromUrl(url) {
   const value = String(url || "").trim();
   if (!value) return null;
   if (/\.(mp4|webm|mov)(\?|$)/i.test(value)) return "video";
+  if (value.startsWith("data:video/")) return "video";
   return "image";
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Falha ao ler arquivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function createMediaPack(formData) {
+  const files = Array.from(formData.getAll("files")).filter((file) => file && file.size);
+  if (!files.length) return;
+
+  const title = String(formData.get("title") || "").trim();
+  const model = String(formData.get("model") || "").trim();
+  const price = String(formData.get("price") || "R$ 49").trim();
+
+  if (state.apiEnabled) {
+    try {
+      const response = await fetch("/api/packs", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const pack = await response.json();
+        state.mediaPacks.unshift(pack);
+        state.activeMediaPackId = null;
+        renderModelGallery();
+        renderDataDashboard();
+        return;
+      }
+    } catch {
+      // Continua para o fallback local.
+    }
+  }
+
+  const media = [];
+
+  for (const [index, file] of files.entries()) {
+    const dataUrl = await readFileAsDataUrl(file);
+    const type = file.type.startsWith("video/") ? "video" : "image";
+    media.push({
+      id: `upload-${Date.now()}-${index}`,
+      title: `${type === "video" ? "Video" : "Foto"} ${String(index + 1).padStart(2, "0")}`,
+      path: dataUrl,
+      type,
+    });
+  }
+
+  const pack = {
+    id: `custom-pack-${Date.now()}`,
+    model,
+    title,
+    description: `${media.filter((item) => item.type === "image").length} fotos e ${media.filter((item) => item.type === "video").length} videos`,
+    price,
+    cover: media.find((item) => item.type === "image")?.path || media[0]?.path || "",
+    media,
+    custom: true,
+  };
+
+  state.mediaPacks.unshift(pack);
+  saveLocalPacks();
+  state.activeMediaPackId = null;
+  renderModelGallery();
 }
 
 function getPublicOrigin() {
@@ -1201,10 +1341,24 @@ els.leadForm.addEventListener("submit", async (event) => {
   els.leadDialog.close();
 });
 
+if (els.packForm) {
+  els.packForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await createMediaPack(new FormData(els.packForm));
+      els.packForm.reset();
+    } catch (error) {
+      alert("Nao foi possivel salvar este pack no navegador. Tente arquivos menores ou configure R2 para upload permanente.");
+    }
+  });
+}
+
 async function init() {
+  state.mediaPacks = loadLocalPacks();
   renderStageSelect();
   render();
   await loadLeads();
+  await loadPacks();
   state.loading = false;
   render();
   window.setInterval(refreshLeads, 4000);

@@ -2612,8 +2612,8 @@ body {
   grid-row: 2;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
-  margin-top: -78px;
-  padding: 60px 14px 12px 72px;
+  margin-top: -8px;
+  padding: 0 14px 10px;
   pointer-events: none;
 }
 
@@ -3209,6 +3209,41 @@ body[data-view="dados"] .content-grid {
   gap: 16px;
 }
 
+.pack-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #0b0f16;
+  padding: 14px;
+}
+
+.pack-form > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.pack-form label {
+  display: grid;
+  gap: 7px;
+  color: #8991a1;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pack-form input {
+  min-width: 0;
+  border-radius: 10px;
+}
+
+.pack-form input[type="file"] {
+  border: 1px dashed rgba(35, 235, 161, 0.35);
+  background: rgba(35, 235, 161, 0.06);
+}
+
 .photos-page .model-card-preview {
   aspect-ratio: 1 / 0.82;
 }
@@ -3484,6 +3519,10 @@ body[data-view="dados"] .content-grid {
 
   .photos-page .model-gallery-page {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pack-form > div {
+    grid-template-columns: 1fr;
   }
 
   .data-metrics {
