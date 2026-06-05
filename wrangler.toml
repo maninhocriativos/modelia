@@ -7,3 +7,7 @@ binding = "DB"
 database_name = "modelia"
 database_id = "1887f592-6f17-4860-b98b-110bb9928ef7"
 migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "PACKS_BUCKET"
+bucket_name = "modelia-packs"
