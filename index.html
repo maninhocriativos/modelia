@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Modelia CRM</title>
-    <link rel="stylesheet" href="styles.css?v=20260605-01" />
+    <link rel="stylesheet" href="styles.css?v=20260605-02" />
   </head>
   <body data-view="atendimento">
     <main class="app-shell">
@@ -13,7 +13,7 @@
           <div class="brand-mark">M</div>
           <div>
             <h1>Modelia</h1>
-            <p>CRM para conteudo adulto</p>
+            <p>CRM para criadoras</p>
           </div>
         </div>
 
@@ -84,6 +84,7 @@
             <p id="lead-meta">A conversa e o historico aparecem aqui.</p>
           </div>
           <div class="topbar-actions">
+            <button class="autopilot-button" type="button" aria-pressed="true">Piloto automatico <span aria-hidden="true"></span></button>
             <select id="stage-select" aria-label="Alterar etapa"></select>
             <button id="mark-done-button" class="ghost-button" type="button">Marcar ganho</button>
           </div>
@@ -154,6 +155,11 @@
               <span id="sync-status" class="sync-status">Sincronizando</span>
             </header>
             <div id="chat-feed" class="chat-feed"></div>
+            <div class="suggestion-bar">
+              <strong>Lia detectou intencao alta.</strong>
+              <span>Lead pronto para comprar - sugestao: oferecer Pack Premium.</span>
+              <button type="button">Aplicar sugestao</button>
+            </div>
             <div class="quick-replies" aria-label="Respostas rapidas">
               <button type="button" data-reply="Sou maior de 18">Sou 18+</button>
               <button type="button" data-reply="Sou menor de 18">Menor</button>
@@ -171,7 +177,7 @@
 
           <aside class="details-panel" aria-label="Detalhes do lead">
             <section>
-              <h3>Perfil do lead</h3>
+              <h3>Contexto do lead</h3>
               <div class="profile-grid">
                 <div>
                   <span>Preferencia</span>
@@ -189,7 +195,7 @@
             </section>
 
             <section>
-              <h3>Dados</h3>
+              <h3>Dados do contato</h3>
               <dl class="details-list">
                 <div>
                   <dt>Telefone</dt>
@@ -209,8 +215,8 @@
 
             <section>
               <div class="section-heading">
-                <h3>Packs das modelos</h3>
-                <span class="section-caption">Abra e anexe</span>
+                <h3>Packs premium</h3>
+                <span class="section-caption">Abrir & anexar</span>
               </div>
               <div id="model-gallery" class="model-gallery" aria-label="Packs e midias disponiveis"></div>
             </section>
@@ -270,6 +276,6 @@
       </form>
     </dialog>
 
-    <script src="app.js?v=20260605-01"></script>
+    <script src="app.js?v=20260605-02"></script>
   </body>
 </html>

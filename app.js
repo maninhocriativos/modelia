@@ -18,6 +18,7 @@ const modelPacks = [
     model: "Lia",
     title: "Pack Lia 01",
     description: "10 fotos e 2 videos da Lia",
+    price: "R$ 49",
     cover: "imagens-modelos/lia/pack-01/fotos/grok-13f7d6f3-a590-4f0d-8e41-853ba1f3b957.jpg",
     media: [
       { id: "lia-foto-01", title: "Foto Lia 01", path: "imagens-modelos/lia/pack-01/fotos/grok-13f7d6f3-a590-4f0d-8e41-853ba1f3b957.jpg", type: "image" },
@@ -39,6 +40,7 @@ const modelPacks = [
     model: "Ingredi",
     title: "Pack Ingredi 01",
     description: "11 fotos e 2 videos da Ingredi",
+    price: "R$ 49",
     cover: "imagens-modelos/ingredi/pack-01/fotos/grok-0033eb5d-99ca-4c44-988a-aca9f954d851.jpg",
     media: [
       { id: "ingredi-foto-01", title: "Foto Ingredi 01", path: "imagens-modelos/ingredi/pack-01/fotos/grok-0033eb5d-99ca-4c44-988a-aca9f954d851.jpg", type: "image" },
@@ -60,18 +62,20 @@ const modelPacks = [
 
 const initialLeads = [
   {
-    id: "lead-ana",
-    name: "Ana Costa",
-    phone: "(92) 98111-4433",
+    id: "lead-thiago",
+    name: "Thiago Silva",
+    phone: "55 92 8407-8295",
     interest: "Packs de conteudo adulto",
-    source: "WhatsApp",
-    stage: "contato",
-    tags: ["vip", "foto", "maior18_confirmado"],
-    notes: "Cliente confirmou ser maior de 18 anos pelo WhatsApp.",
-    activities: ["Aquecer lead com amostra gratis", "Oferecer packs da Lia"],
+    source: "Meta WhatsApp",
+    stage: "proposta",
+    tags: ["whatsapp", "meta", "maior18_confirmado"],
+    notes: "Prefere conteudo mais leve no comeco. Respondeu rapido a amostra. Proximo passo: fechar Pack Premium.",
+    activities: ["Oferecer Pack Premium", "Enviar amostra autorizada da Lia"],
     messages: [
-      { id: "msg-1", from: "client", text: "Oi, quero conhecer melhor a modelo.", at: "09:12" },
-      { id: "msg-2", from: "agent", text: "Oi, amor. A Lia vai te aquecer com uma amostrinha gratis minha. Se gostar, me fala \"quero ver mais\".", mediaUrl: liaSampleImagePath, mediaType: "image", at: "09:14" },
+      { id: "msg-1", from: "client", text: "Oi, vi seu perfil 👀 voce tem conteudo novo?", at: "18:54" },
+      { id: "msg-2", from: "agent", text: "Oi Thiago 😈 que bom que me achou. To preparando uns conteudos fresquinhos hoje... quer dar uma espiada antes de todo mundo?", at: "18:55" },
+      { id: "msg-3", from: "client", text: "Quero sim, o que voce tem?", at: "19:01" },
+      { id: "msg-4", from: "agent", text: "Essa e so uma provinha 😏 o pack completo tem fotos e videos com um clima bem mais provocante.", mediaUrl: liaSampleImagePath, mediaType: "image", at: "19:07" },
     ],
   },
   {
@@ -465,6 +469,9 @@ function renderMediaPackCards() {
         <button class="model-card model-pack-card" type="button" data-pack-id="${escapeAttribute(pack.id)}">
           <span class="model-card-preview" data-fallback="Adicionar capa">
             <img src="${escapeAttribute(pack.cover)}" alt="${escapeAttribute(pack.title)}" loading="lazy" onerror="this.parentElement.classList.add('is-empty'); this.remove();" />
+            <span class="media-badge">Pack</span>
+            <span class="media-lock" aria-hidden="true">+</span>
+            <span class="media-price">${escapeHtml(pack.price || "R$ 49")}</span>
           </span>
           <span>${escapeHtml(pack.title)}</span>
           <small>${escapeHtml(pack.model)} - ${escapeHtml(pack.description)}</small>
@@ -488,8 +495,8 @@ function renderPackMedia(pack, origin) {
         const publicUrl = `${origin}/${item.path}`;
         const preview =
           item.type === "video"
-            ? `<span class="model-card-preview" data-fallback="Adicionar video"><video src="${escapeAttribute(item.path)}" preload="metadata" muted playsinline onerror="this.parentElement.classList.add('is-empty'); this.remove();"></video></span>`
-            : `<span class="model-card-preview" data-fallback="Adicionar foto"><img src="${escapeAttribute(item.path)}" alt="${escapeAttribute(item.title)}" loading="lazy" onerror="this.parentElement.classList.add('is-empty'); this.remove();" /></span>`;
+            ? `<span class="model-card-preview" data-fallback="Adicionar video"><video src="${escapeAttribute(item.path)}" preload="metadata" muted playsinline onerror="this.parentElement.classList.add('is-empty'); this.remove();"></video><span class="media-badge">Video</span><span class="media-lock" aria-hidden="true">▷</span></span>`
+            : `<span class="model-card-preview" data-fallback="Adicionar foto"><img src="${escapeAttribute(item.path)}" alt="${escapeAttribute(item.title)}" loading="lazy" onerror="this.parentElement.classList.add('is-empty'); this.remove();" /><span class="media-badge">Foto</span><span class="media-lock" aria-hidden="true">+</span></span>`;
 
         return `
           <button class="model-card" type="button" data-media-url="${escapeAttribute(publicUrl)}" data-media-type="${escapeAttribute(item.type)}">
