@@ -769,6 +769,18 @@ function buildAfterSampleTease(name, messages) {
 
 function buildCheckoutMessage(name, packId, payment = {}, agentText = "") {
   const pack = PACKS.find((item) => item.id === packId) || PACKS[0];
+  if (payment.provider === "asaas") {
+    return {
+      text:
+        String(agentText || "").trim() ||
+        `Fechei o ${pack.title} por ${pack.description}. Vou gerar teu Pix agora e te mando aqui no WhatsApp.`,
+      paymentRequest: {
+        provider: "asaas",
+        packId: pack.id,
+      },
+    };
+  }
+
   const pix = buildPixCopyPaste(pack, payment);
   const intro = String(agentText || "").trim();
 
@@ -784,6 +796,10 @@ function buildCheckoutMessage(name, packId, payment = {}, agentText = "") {
 }
 
 function buildPaymentConfig(env, contact) {
+  if (env.ASAAS_API_KEY) {
+    return { provider: "asaas" };
+  }
+
   return {
     pixKey: env.PIX_KEY || "",
     merchantName: env.PIX_MERCHANT_NAME || "LIA CONTEUDOS",

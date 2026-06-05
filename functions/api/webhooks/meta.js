@@ -1,4 +1,5 @@
 import { createId, json, readJson } from "../../_lib/http.js";
+import { buildPixMessage, createAsaasPixPayment } from "../../_lib/asaas.js";
 import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, sendMetaAudioMessage, sendMetaMessage } from "../../_lib/lia-agent.js";
 import { parseJson } from "../../_lib/leads.js";
 
@@ -351,6 +352,11 @@ async function sendAutomaticReply(env, request, contact) {
       continue;
     }
 
+    if (reply.paymentRequest?.provider === "asaas") {
+      await sendAsaasPixReply(env, request, contact, reply.paymentRequest.packId);
+      continue;
+    }
+
     if (shouldSendAudio(env, reply, rows.results || [])) {
       const audioResult = await sendMetaAudioMessage(env, contact.phone, reply.text);
       await env.DB.prepare(
@@ -398,6 +404,14 @@ async function sendAutomaticReply(env, request, contact) {
   }
 }
 
+async function sendAsaasPixReply(env, request, contact, packId) {
+  const payment = await createAsaasPixPayment(env, request, contact, packId);
+  const reply = buildPixMessage(payment);
+  const result = await sendMetaMessage(env, contact.phone, reply);
+  await insertOutboundMessage(env, contact.id, reply, result, "asaas-pix");
+  await env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id).run();
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -406,7 +420,9 @@ function limitReplies(replies) {
   const list = Array.isArray(replies) ? replies.filter(Boolean) : [];
   if (list.length <= 1) return list;
 
-  const technical = list.filter((reply) => reply.generateImage || reply.mediaUrl || reply.buttons?.length || reply.packs?.length || hasPaymentText(reply.text || ""));
+  const technical = list.filter(
+    (reply) => reply.paymentRequest || reply.generateImage || reply.mediaUrl || reply.buttons?.length || reply.packs?.length || hasPaymentText(reply.text || "")
+  );
   if (technical.length) return technical.slice(0, 1);
 
   return list.slice(0, 1);

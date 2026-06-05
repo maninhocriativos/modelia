@@ -1,4 +1,5 @@
 import { createId, json, readJson } from "../../../_lib/http.js";
+import { buildPixMessage, createAsaasPixPayment } from "../../../_lib/asaas.js";
 import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, sendMetaMessage } from "../../../_lib/lia-agent.js";
 import { parseJson } from "../../../_lib/leads.js";
 
@@ -73,6 +74,11 @@ async function sendAutomaticReply(env, request, contact) {
 
   if (!reply) return;
 
+  if (reply.paymentRequest?.provider === "asaas") {
+    await sendAsaasPixReply(env, request, contact, reply.paymentRequest.packId);
+    return;
+  }
+
   const result = await sendMetaMessage(env, contact.phone, reply);
   await env.DB.prepare(
     `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
@@ -111,4 +117,18 @@ async function sendAutomaticReply(env, request, contact) {
       )
       .run();
   }
+}
+
+async function sendAsaasPixReply(env, request, contact, packId) {
+  const payment = await createAsaasPixPayment(env, request, contact, packId);
+  const reply = buildPixMessage(payment);
+  const result = await sendMetaMessage(env, contact.phone, reply);
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
+       VALUES (?, ?, 'outbound', ?, ?, ?, 'asaas-pix', ?, ?)`
+    ).bind(createId("msg"), contact.id, reply.text, reply.mediaUrl, reply.mediaType, result.providerMessageId, result.ok ? "sent" : "failed"),
+    env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id),
+  ]);
 }

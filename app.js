@@ -160,6 +160,7 @@ const els = {
   activityList: document.querySelector("#activity-list"),
   sendAudioPreviewButton: document.querySelector("#send-audio-preview-button"),
   requestCallButton: document.querySelector("#request-call-button"),
+  createPixButton: document.querySelector("#create-pix-button"),
   leadDialog: document.querySelector("#lead-dialog"),
   leadForm: document.querySelector("#lead-form"),
 };
@@ -971,6 +972,15 @@ function classifyPackReply(text) {
   return null;
 }
 
+function inferPackChoiceFromLead(lead) {
+  const messages = [...(lead?.messages || [])].reverse();
+  for (const message of messages) {
+    const choice = classifyPackReply(`${message.text || ""} ${message.mediaUrl || ""}`);
+    if (choice) return choice;
+  }
+  return null;
+}
+
 function hasAny(text, terms) {
   return terms.some((term) => text.includes(normalizeText(term)));
 }
@@ -1357,6 +1367,28 @@ if (els.requestCallButton) {
       await refreshLeads({ force: true });
     } catch {
       renderSyncStatus("Ligacao falhou");
+    }
+  });
+}
+
+if (els.createPixButton) {
+  els.createPixButton.addEventListener("click", async () => {
+    const lead = getActiveLead();
+    if (!lead || !state.apiEnabled) return;
+
+    renderSyncStatus("Gerando Pix...");
+    try {
+      await api("/api/payments/pix", {
+        method: "POST",
+        body: JSON.stringify({
+          contactId: lead.id,
+          packId: inferPackChoiceFromLead(lead) || "pack_30_fotos",
+        }),
+      });
+      await refreshLeads({ force: true });
+    } catch (error) {
+      renderSyncStatus("Pix falhou");
+      alert(`Nao foi possivel gerar Pix: ${error.message}`);
     }
   });
 }
