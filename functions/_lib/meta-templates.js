@@ -5,15 +5,15 @@ export const META_TEMPLATE_LANGUAGE = "pt_BR";
 export const META_TEMPLATES = [
   {
     id: "reengagement",
-    name: "modelia_retomar_atendimento_v1",
+    name: "modelia_continuar_atendimento_v2",
     language: META_TEMPLATE_LANGUAGE,
     category: "MARKETING",
     label: "Retomar atendimento",
-    body: "Oi {{1}}, posso continuar seu atendimento por aqui?",
+    body: "Oi {{1}}, aqui e da Musas Net Manaus. Podemos continuar seu atendimento pelo WhatsApp?",
     buttons: [
       { id: "continue_yes", title: "Continuar" },
       { id: "see_options", title: "Ver opcoes" },
-      { id: "not_now", title: "Agora nao" },
+      { id: "stop", title: "Parar" },
     ],
   },
 ];
@@ -98,7 +98,7 @@ async function submitMetaTemplate(env, wabaId, template) {
       language: template.language,
       category: template.category,
       components: [
-        { type: "BODY", text: template.body },
+        { type: "BODY", text: template.body, example: { body_text: [["Thiago"]] } },
         {
           type: "BUTTONS",
           buttons: template.buttons.map((button) => ({
