@@ -26,7 +26,7 @@ export async function onRequestPost({ env, request }) {
   let replied = 0;
 
   if (statusEvents.length) {
-    await updateMessageStatuses(env.DB, statusEvents);
+    await updateMessageStatuses(env, statusEvents);
   }
 
   for (const event of events) {
@@ -122,7 +122,8 @@ function extractMessageStatuses(payload) {
   return events;
 }
 
-async function updateMessageStatuses(db, events) {
+async function updateMessageStatuses(env, events) {
+  const db = env.DB;
   const statements = events.map((event) =>
     db
       .prepare("UPDATE messages SET status = ?, provider_error = ? WHERE provider_message_id = ?")
@@ -130,6 +131,31 @@ async function updateMessageStatuses(db, events) {
   );
 
   if (statements.length) await db.batch(statements);
+
+  for (const event of events) {
+    if (event.status !== "failed" || !isMetaReengagementError(event)) continue;
+    const message = await db
+      .prepare("SELECT * FROM messages WHERE provider_message_id = ? LIMIT 1")
+      .bind(event.providerMessageId)
+      .first();
+    if (!message || message.provider === "meta-template") continue;
+
+    const alreadyTriggered = await db
+      .prepare(
+        `SELECT id FROM messages
+         WHERE contact_id = ? AND provider = 'meta-template' AND unixepoch(created_at) >= unixepoch(?)
+         LIMIT 1`
+      )
+      .bind(message.contact_id, message.created_at)
+      .first();
+    if (alreadyTriggered) continue;
+
+    const contact = await db.prepare("SELECT * FROM contacts WHERE id = ?").bind(message.contact_id).first();
+    if (!contact) continue;
+
+    const templateId = message.provider === "asaas-payment" ? "payment_followup" : "support_followup";
+    await sendReactivationTemplate(env, contact, templateId);
+  }
 }
 
 function mapMetaStatus(status) {
