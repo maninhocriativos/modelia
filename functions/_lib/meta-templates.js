@@ -16,6 +16,55 @@ export const META_TEMPLATES = [
       { id: "stop", title: "Parar" },
     ],
   },
+  {
+    id: "support_followup",
+    name: "modelia_retorno_suporte_v1",
+    language: META_TEMPLATE_LANGUAGE,
+    category: "UTILITY",
+    label: "Retorno de suporte",
+    body: "Oi {{1}}, estamos retornando sobre seu atendimento na Musas Net Manaus. Podemos continuar por aqui?",
+    buttons: [
+      { id: "continue_service", title: "Continuar" },
+      { id: "talk_later", title: "Depois" },
+    ],
+  },
+  {
+    id: "options_followup",
+    name: "modelia_ver_opcoes_v1",
+    language: META_TEMPLATE_LANGUAGE,
+    category: "MARKETING",
+    label: "Ver opcoes",
+    body: "Oi {{1}}, temos novas opcoes disponiveis no atendimento da Musas Net Manaus. Quer receber as informacoes por aqui?",
+    buttons: [
+      { id: "send_options", title: "Ver opcoes" },
+      { id: "not_now", title: "Agora nao" },
+      { id: "stop", title: "Parar" },
+    ],
+  },
+  {
+    id: "payment_followup",
+    name: "modelia_pagamento_pendente_v1",
+    language: META_TEMPLATE_LANGUAGE,
+    category: "UTILITY",
+    label: "Pagamento pendente",
+    body: "Oi {{1}}, seu atendimento na Musas Net Manaus tem uma etapa de pagamento pendente. Quer continuar agora?",
+    buttons: [
+      { id: "continue_payment", title: "Continuar" },
+      { id: "need_help", title: "Ajuda" },
+    ],
+  },
+  {
+    id: "consent_check",
+    name: "modelia_confirmar_contato_v1",
+    language: META_TEMPLATE_LANGUAGE,
+    category: "UTILITY",
+    label: "Confirmar contato",
+    body: "Oi {{1}}, podemos enviar atualizacoes sobre seu atendimento da Musas Net Manaus neste WhatsApp?",
+    buttons: [
+      { id: "yes_updates", title: "Pode enviar" },
+      { id: "no_updates", title: "Nao enviar" },
+    ],
+  },
 ];
 
 export function getMetaTemplate(templateId = "reengagement") {
