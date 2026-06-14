@@ -154,7 +154,7 @@ export async function insertTemplateOutbound(env, contact, result, template) {
 }
 
 export function isMetaReengagementError(result) {
-  const error = String(result?.error || "");
+  const error = String(result?.error || result?.providerError || "");
   return error.includes("131047") || error.toLowerCase().includes("re-engagement");
 }
 
