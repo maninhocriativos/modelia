@@ -158,6 +158,8 @@ const els = {
   noteInput: document.querySelector("#note-input"),
   saveNoteButton: document.querySelector("#save-note-button"),
   activityList: document.querySelector("#activity-list"),
+  sendTemplateButton: document.querySelector("#send-template-button"),
+  submitTemplatesButton: document.querySelector("#submit-templates-button"),
   sendAudioPreviewButton: document.querySelector("#send-audio-preview-button"),
   requestCallButton: document.querySelector("#request-call-button"),
   createPixButton: document.querySelector("#create-pix-button"),
@@ -172,7 +174,8 @@ async function api(path, options = {}) {
   });
 
   if (!response.ok) {
-    throw new Error(`API ${response.status}`);
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || `API ${response.status}`);
   }
 
   return response.status === 204 ? null : response.json();
@@ -1357,6 +1360,43 @@ if (els.sendAudioPreviewButton) {
       await refreshLeads({ force: true });
     } catch {
       renderSyncStatus("Audio falhou");
+    }
+  });
+}
+
+if (els.sendTemplateButton) {
+  els.sendTemplateButton.addEventListener("click", async () => {
+    const lead = getActiveLead();
+    if (!lead || !state.apiEnabled) return;
+
+    renderSyncStatus("Enviando template...");
+    try {
+      await api(`/api/leads/${encodeURIComponent(lead.id)}/template`, {
+        method: "POST",
+        body: JSON.stringify({ templateId: "reengagement" }),
+      });
+      await refreshLeads({ force: true });
+    } catch (error) {
+      renderSyncStatus("Template falhou");
+      alert(`Nao foi possivel enviar template: ${error.message}`);
+      await refreshLeads({ force: true });
+    }
+  });
+}
+
+if (els.submitTemplatesButton) {
+  els.submitTemplatesButton.addEventListener("click", async () => {
+    if (!state.apiEnabled) return;
+
+    renderSyncStatus("Submetendo templates...");
+    try {
+      const result = await api("/api/templates", { method: "POST" });
+      const failed = (result.results || []).filter((item) => !item.ok);
+      renderSyncStatus(failed.length ? "Template pendente" : "Template submetido");
+      alert(failed.length ? failed.map((item) => `${item.template}: ${item.error}`).join("\n") : "Template submetido para aprovacao da Meta.");
+    } catch (error) {
+      renderSyncStatus("Template falhou");
+      alert(`Nao foi possivel submeter templates: ${error.message}`);
     }
   });
 }

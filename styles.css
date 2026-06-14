@@ -2905,9 +2905,14 @@ body[data-chat-empty="true"] .quick-replies {
 }
 
 .suggestion-bar {
+  flex-wrap: wrap;
   padding: 10px 24px;
   background: rgba(35, 235, 161, 0.13);
   font-size: 12px;
+}
+
+.suggestion-bar span {
+  min-width: 220px;
 }
 
 .suggestion-bar button {
@@ -2917,7 +2922,9 @@ body[data-chat-empty="true"] .quick-replies {
 }
 
 #send-audio-preview-button,
-#request-call-button {
+#request-call-button,
+#send-template-button,
+#submit-templates-button {
   border: 1px solid rgba(35, 235, 161, 0.28);
   background: rgba(7, 9, 16, 0.74);
   color: var(--brand);
