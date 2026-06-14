@@ -1,5 +1,5 @@
 import { createId, json, readJson } from "../../_lib/http.js";
-import { buildPixMessage, createAsaasPixPayment } from "../../_lib/asaas.js";
+import { buildAsaasPaymentMessage, createAsaasPayment } from "../../_lib/asaas.js";
 import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, sendMetaAudioMessage, sendMetaMessage } from "../../_lib/lia-agent.js";
 import { parseJson } from "../../_lib/leads.js";
 
@@ -21,7 +21,12 @@ export async function onRequestGet({ env, request }) {
 export async function onRequestPost({ env, request }) {
   const body = await readJson(request);
   const events = extractMessages(body);
+  const statusEvents = extractMessageStatuses(body);
   let replied = 0;
+
+  if (statusEvents.length) {
+    await updateMessageStatuses(env.DB, statusEvents);
+  }
 
   for (const event of events) {
     const enrichedEvent = await enrichInboundEvent(env, event);
@@ -33,7 +38,7 @@ export async function onRequestPost({ env, request }) {
     }
   }
 
-  return json({ ok: true, received: events.length, replied });
+  return json({ ok: true, received: events.length, statuses: statusEvents.length, replied });
 }
 
 function extractMessages(payload) {
@@ -81,6 +86,58 @@ function getMedia(message) {
   if (message.audio?.id) return { type: "audio", url: `meta-media:${message.audio.id}` };
   if (message.document?.id) return { type: "document", url: `meta-media:${message.document.id}` };
   return { type: null, url: null };
+}
+
+function extractMessageStatuses(payload) {
+  const events = [];
+
+  for (const entry of payload.entry || []) {
+    for (const change of entry.changes || []) {
+      const value = change.value || {};
+
+      for (const status of value.statuses || []) {
+        if (!status.id) continue;
+        events.push({
+          providerMessageId: status.id,
+          status: mapMetaStatus(status.status),
+          providerError: getStatusError(status),
+        });
+      }
+    }
+  }
+
+  return events;
+}
+
+async function updateMessageStatuses(db, events) {
+  const statements = events.map((event) =>
+    db
+      .prepare("UPDATE messages SET status = ?, provider_error = ? WHERE provider_message_id = ?")
+      .bind(event.status, event.providerError, event.providerMessageId)
+  );
+
+  if (statements.length) await db.batch(statements);
+}
+
+function mapMetaStatus(status) {
+  const value = String(status || "").toLowerCase();
+  if (["sent", "delivered", "read", "failed"].includes(value)) return value;
+  return value || "sent";
+}
+
+function getStatusError(status) {
+  const error = (status.errors || [])[0] || null;
+  if (!error) return "";
+
+  return [
+    error.title,
+    error.message,
+    error.details,
+    error.code ? `codigo ${error.code}` : "",
+  ]
+    .filter(Boolean)
+    .join(" - ")
+    .slice(0, 500);
 }
 
 async function enrichInboundEvent(env, event) {
@@ -353,7 +410,7 @@ async function sendAutomaticReply(env, request, contact) {
     }
 
     if (reply.paymentRequest?.provider === "asaas") {
-      await sendAsaasPixReply(env, request, contact, reply.paymentRequest.packId);
+      await sendAsaasPaymentReply(env, request, contact, reply.paymentRequest.packId);
       continue;
     }
 
@@ -404,11 +461,11 @@ async function sendAutomaticReply(env, request, contact) {
   }
 }
 
-async function sendAsaasPixReply(env, request, contact, packId) {
-  const payment = await createAsaasPixPayment(env, request, contact, packId);
-  const reply = buildPixMessage(payment);
+async function sendAsaasPaymentReply(env, request, contact, packId) {
+  const payment = await createAsaasPayment(env, request, contact, packId);
+  const reply = buildAsaasPaymentMessage(payment);
   const result = await sendMetaMessage(env, contact.phone, reply);
-  await insertOutboundMessage(env, contact.id, reply, result, "asaas-pix");
+  await insertOutboundMessage(env, contact.id, reply, result, "asaas-payment");
   await env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id).run();
 }
 

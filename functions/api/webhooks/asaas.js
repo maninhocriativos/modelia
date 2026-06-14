@@ -1,9 +1,9 @@
-import { json, createId } from "../../_lib/http.js";
+import { json } from "../../_lib/http.js";
 import { markAsaasPaymentFromWebhook } from "../../_lib/asaas.js";
-import { sendMetaMessage } from "../../_lib/lia-agent.js";
+import { deliverPaidPack } from "../../_lib/pack-delivery.js";
 import { parseJson } from "../../_lib/leads.js";
 
-export async function onRequestPost({ env, request }) {
+export async function onRequestPost({ env, request, waitUntil }) {
   if (env.ASAAS_WEBHOOK_TOKEN) {
     const receivedToken =
       request.headers.get("asaas-access-token") ||
@@ -22,40 +22,40 @@ export async function onRequestPost({ env, request }) {
     return json({ ok: true, ignored: true });
   }
 
+  let delivery = null;
   if (payment.status === "paid") {
-    await notifyPaid(env, payment);
+    if (typeof waitUntil === "function") {
+      waitUntil(notifyPaid(env, request, payment));
+      delivery = { scheduled: true };
+    } else {
+      delivery = await notifyPaid(env, request, payment);
+    }
   }
 
-  return json({ ok: true, status: payment.status });
+  return json({ ok: true, status: payment.status, delivery });
 }
 
-async function notifyPaid(env, payment) {
+async function notifyPaid(env, request, payment) {
   const contact = await env.DB.prepare("SELECT * FROM contacts WHERE id = ?").bind(payment.contact_id).first();
-  if (!contact) return;
+  if (!contact) return { delivered: false, reason: "contact_not_found" };
 
-  const alreadyNotified = await env.DB.prepare(
-    "SELECT id FROM messages WHERE contact_id = ? AND provider = 'asaas-paid' AND text LIKE ? LIMIT 1"
-  )
-    .bind(contact.id, `%${payment.id}%`)
-    .first();
-  if (alreadyNotified) return;
-
-  const reply = {
-    text: `Pagamento confirmado ✅\n\nSeu ${payment.pack_title} foi aprovado. Vou liberar o pack completo agora.\n\nReferencia: ${payment.id}`,
-  };
-  const result = await sendMetaMessage(env, contact.phone, reply);
+  const delivery = await deliverPaidPack(env, request, contact, payment);
   const activities = parseJson(contact.activities, []);
+  const deliveredLabel = delivery.delivered
+    ? `Pack entregue automaticamente (${delivery.count}/${delivery.total})`
+    : delivery.reason === "already_delivered"
+      ? "Pack completo ja entregue"
+      : "Entrega automatica pendente";
+
   const nextActivities = [
     `Pagamento confirmado: ${payment.pack_title}`,
-    "Liberar pack completo",
-    ...activities.filter((item) => !String(item).startsWith("Aguardando Pix")),
+    deliveredLabel,
+    ...activities.filter((item) => !String(item).startsWith("Aguardando Pix") && !String(item).startsWith("Aguardando pagamento")),
   ];
 
-  await env.DB.batch([
-    env.DB.prepare(
-      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-       VALUES (?, ?, 'outbound', ?, NULL, NULL, 'asaas-paid', ?, ?)`
-    ).bind(createId("msg"), contact.id, reply.text, result.providerMessageId, result.ok ? "sent" : "failed"),
-    env.DB.prepare("UPDATE contacts SET stage = 'ganho', activities = ?, updated_at = datetime('now') WHERE id = ?").bind(JSON.stringify(nextActivities), contact.id),
-  ]);
+  await env.DB.prepare("UPDATE contacts SET stage = 'ganho', activities = ?, updated_at = datetime('now') WHERE id = ?")
+    .bind(JSON.stringify(nextActivities), contact.id)
+    .run();
+
+  return delivery;
 }

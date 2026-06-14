@@ -22,6 +22,7 @@ export function mapMessage(row) {
     mediaType: row.media_type || null,
     provider: row.provider,
     status: row.status,
+    providerError: row.provider_error || "",
     at: formatTime(row.created_at),
   };
 }

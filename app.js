@@ -546,11 +546,16 @@ function renderMessageStatus(message) {
   const labels = {
     sending: "Enviando",
     sent: "Enviada",
+    delivered: "Entregue",
+    read: "Lida",
     failed: "Falhou",
     stored: "Salva",
   };
   const label = labels[message.status] || message.status;
-  return ` <span class="message-status ${escapeAttribute(message.status)}">${escapeHtml(label)}</span>`;
+  const error = String(message.providerError || message.provider_error || "").trim();
+  const title = error ? ` title="${escapeAttribute(error)}"` : "";
+  const errorText = error ? `: ${error}` : "";
+  return ` <span class="message-status ${escapeAttribute(message.status)}"${title}>${escapeHtml(label + errorText)}</span>`;
 }
 
 function renderStageSelect() {
@@ -1376,9 +1381,9 @@ if (els.createPixButton) {
     const lead = getActiveLead();
     if (!lead || !state.apiEnabled) return;
 
-    renderSyncStatus("Gerando Pix...");
+    renderSyncStatus("Gerando pagamento...");
     try {
-      await api("/api/payments/pix", {
+      await api("/api/payments/asaas", {
         method: "POST",
         body: JSON.stringify({
           contactId: lead.id,
@@ -1387,8 +1392,8 @@ if (els.createPixButton) {
       });
       await refreshLeads({ force: true });
     } catch (error) {
-      renderSyncStatus("Pix falhou");
-      alert(`Nao foi possivel gerar Pix: ${error.message}`);
+      renderSyncStatus("Pagamento falhou");
+      alert(`Nao foi possivel gerar pagamento: ${error.message}`);
     }
   });
 }

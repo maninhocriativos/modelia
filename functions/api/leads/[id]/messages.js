@@ -1,5 +1,5 @@
 import { createId, json, readJson } from "../../../_lib/http.js";
-import { buildPixMessage, createAsaasPixPayment } from "../../../_lib/asaas.js";
+import { buildAsaasPaymentMessage, createAsaasPayment } from "../../../_lib/asaas.js";
 import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, sendMetaMessage } from "../../../_lib/lia-agent.js";
 import { parseJson } from "../../../_lib/leads.js";
 
@@ -31,9 +31,9 @@ export async function onRequestPost({ env, params, request }) {
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(id, params.id, direction, text, mediaUrl, mediaType, provider, providerMessageId, status),
+      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status, provider_error)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(id, params.id, direction, text, mediaUrl, mediaType, provider, providerMessageId, status, providerError || ""),
     env.DB.prepare("UPDATE contacts SET updated_at = datetime('now') WHERE id = ?").bind(params.id),
   ]);
 
@@ -75,7 +75,7 @@ async function sendAutomaticReply(env, request, contact) {
   if (!reply) return;
 
   if (reply.paymentRequest?.provider === "asaas") {
-    await sendAsaasPixReply(env, request, contact, reply.paymentRequest.packId);
+    await sendAsaasPaymentReply(env, request, contact, reply.paymentRequest.packId);
     return;
   }
 
@@ -119,15 +119,15 @@ async function sendAutomaticReply(env, request, contact) {
   }
 }
 
-async function sendAsaasPixReply(env, request, contact, packId) {
-  const payment = await createAsaasPixPayment(env, request, contact, packId);
-  const reply = buildPixMessage(payment);
+async function sendAsaasPaymentReply(env, request, contact, packId) {
+  const payment = await createAsaasPayment(env, request, contact, packId);
+  const reply = buildAsaasPaymentMessage(payment);
   const result = await sendMetaMessage(env, contact.phone, reply);
 
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-       VALUES (?, ?, 'outbound', ?, ?, ?, 'asaas-pix', ?, ?)`
+       VALUES (?, ?, 'outbound', ?, ?, ?, 'asaas-payment', ?, ?)`
     ).bind(createId("msg"), contact.id, reply.text, reply.mediaUrl, reply.mediaType, result.providerMessageId, result.ok ? "sent" : "failed"),
     env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id),
   ]);

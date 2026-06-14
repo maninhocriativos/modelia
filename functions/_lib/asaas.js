@@ -12,7 +12,7 @@ export function hasAsaasConfig(env) {
   return Boolean(env.ASAAS_API_KEY);
 }
 
-export async function createAsaasPixPayment(env, request, contact, packId) {
+export async function createAsaasPayment(env, request, contact, packId) {
   if (!hasAsaasConfig(env)) {
     throw new Error("ASAAS_API_KEY nao configurada.");
   }
@@ -26,15 +26,16 @@ export async function createAsaasPixPayment(env, request, contact, packId) {
     method: "POST",
     body: {
       customer: customer.id,
-      billingType: "PIX",
+      billingType: "UNDEFINED",
       value: Number(pack.amount || 0),
       dueDate,
       description: `Modelia - ${pack.title}`,
       externalReference,
     },
   });
-  const qrCode = await asaasFetch(env, `/payments/${encodeURIComponent(payment.id)}/pixQrCode`);
+  const qrCode = await getAsaasPixQrCode(env, payment.id);
   const qrUrl = new URL(`/api/payments/${encodeURIComponent(paymentId)}/qr`, request.url).toString();
+  const qrImage = qrCode.encodedImage || "";
 
   await env.DB.prepare(
     `INSERT INTO payments (
@@ -51,7 +52,7 @@ export async function createAsaasPixPayment(env, request, contact, packId) {
       payment.id,
       customer.id,
       qrCode.payload || "",
-      qrCode.encodedImage || "",
+      qrImage,
       payment.invoiceUrl || payment.bankSlipUrl || "",
       externalReference
     )
@@ -65,20 +66,30 @@ export async function createAsaasPixPayment(env, request, contact, packId) {
     packTitle: pack.title,
     amount: Number(pack.amount || 0),
     status: "pending",
+    billingType: "UNDEFINED",
     pixPayload: qrCode.payload || "",
-    qrImageUrl: qrUrl,
+    qrImageUrl: qrImage ? qrUrl : "",
     invoiceUrl: payment.invoiceUrl || payment.bankSlipUrl || "",
   };
 }
 
-export function buildPixMessage(payment) {
+export async function createAsaasPixPayment(env, request, contact, packId) {
+  return createAsaasPayment(env, request, contact, packId);
+}
+
+export function buildAsaasPaymentMessage(payment) {
   const amount = formatCurrency(payment.amount);
+  const paymentLink = payment.invoiceUrl ? `\n\nLink para pagar com cartao ou Pix:\n${payment.invoiceUrl}` : "";
+  const pix = payment.pixPayload ? `\n\nPix copia e cola:\n${payment.pixPayload}` : "";
+
   return {
-    text: `Fechei pra voce: ${payment.packTitle} por ${amount}.\n\nPix copia e cola:\n${payment.pixPayload}\n\nAssim que o pagamento cair, eu confirmo aqui e libero o pack completo automaticamente.`,
-    mediaUrl: payment.qrImageUrl,
-    mediaType: "image",
+    text: `Fechei pra voce: ${payment.packTitle} por ${amount}.\n\nPode pagar por Pix ou cartao.${paymentLink}${pix}\n\nAssim que o pagamento cair, eu confirmo aqui e libero o pack completo automaticamente.`,
+    mediaUrl: payment.qrImageUrl || null,
+    mediaType: payment.qrImageUrl ? "image" : null,
   };
 }
+
+export const buildPixMessage = buildAsaasPaymentMessage;
 
 export async function markAsaasPaymentFromWebhook(env, event) {
   const payment = event?.payment || {};
@@ -138,6 +149,14 @@ async function asaasFetch(env, path, options = {}) {
     throw new Error(message);
   }
   return data;
+}
+
+async function getAsaasPixQrCode(env, paymentId) {
+  try {
+    return await asaasFetch(env, `/payments/${encodeURIComponent(paymentId)}/pixQrCode`);
+  } catch (error) {
+    return { payload: "", encodedImage: "" };
+  }
 }
 
 function getAsaasBaseUrl(env) {

@@ -376,7 +376,7 @@ Regras obrigatorias do CRM:
 - Use generate_image quando o cliente pedir para criar/gerar/fazer uma foto ou imagem personalizada da Lia.
 - Use show_packs somente se sample_sent for true e o cliente pedir preco, pack, valor, comprar ou quiser mais.
 - Use checkout somente quando o cliente escolher um pack especifico. pack_id deve ser pack_10_fotos, pack_30_fotos ou pack_20_fotos_1_video.
-- Quando usar checkout, escreva apenas uma frase curta de transicao; o CRM vai gerar o Pix automaticamente.
+- Quando usar checkout, escreva apenas uma frase curta de transicao; o CRM vai gerar o pagamento Asaas automaticamente com Pix ou cartao.
 - Nunca ofereca packs antes da amostra.
 - Nunca repita texto, abertura ou pergunta das ultimas mensagens da Lia.
 - Se o cliente pedir "palavras", entregue uma provocacao curta e sugestiva antes de fazer uma pergunta pequena.
@@ -469,7 +469,7 @@ Nao transforme pergunta pessoal em oferta.
 Nao ofereca packs antes da amostra.
 Nao use show_packs se sample_sent for false.
 Se sample_sent for true mas inbound_after_sample for menor que 2, prefira continue_conversation, a menos que o cliente peca preco/pack explicitamente.
-Se o cliente escolher um pack pelo ID ou pelo nome, use checkout. O CRM vai gerar o Pix automaticamente.
+Se o cliente escolher um pack pelo ID ou pelo nome, use checkout. O CRM vai gerar o pagamento Asaas automaticamente com Pix ou cartao.
 Fale natural, com presença e sem parecer resposta pronta. Use 2 a 4 frases curtas quando o cliente quiser conversar.
 Nao encerre toda resposta com venda. Se ele puxar assunto pessoal, responda e puxe outra pergunta.
 Nunca repita a mesma abertura das ultimas mensagens da Lia.
@@ -773,7 +773,7 @@ function buildCheckoutMessage(name, packId, payment = {}, agentText = "") {
     return {
       text:
         String(agentText || "").trim() ||
-        `Fechei o ${pack.title} por ${pack.description}. Vou gerar teu Pix agora e te mando aqui no WhatsApp.`,
+        `Fechei o ${pack.title} por ${pack.description}. Vou gerar teu pagamento por Pix ou cartao e te mando aqui no WhatsApp.`,
       paymentRequest: {
         provider: "asaas",
         packId: pack.id,
