@@ -25,7 +25,7 @@ export function getMetaTemplate(templateId = "reengagement") {
 export async function submitMetaTemplates(env) {
   const wabaId = await getWhatsAppBusinessAccountId(env);
   if (!env.META_ACCESS_TOKEN || !wabaId) {
-    throw new Error("META_ACCESS_TOKEN ou META_WABA_ID nao configurado.");
+    throw new Error("Configure META_WABA_ID nos secrets do Pages para criar templates na Meta.");
   }
 
   const results = [];
@@ -60,12 +60,12 @@ export async function sendMetaTemplateMessage(env, contact, templateId = "reenga
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      return { ok: false, providerMessageId: null, error: data.error?.message || "Falha no envio do template pela Meta." };
+      return { ok: false, providerMessageId: null, error: normalizeTemplateError(data.error?.message || "Falha no envio do template pela Meta."), template };
     }
 
     return { ok: true, providerMessageId: data.messages?.[0]?.id || null, error: null, template };
   } catch (error) {
-    return { ok: false, providerMessageId: null, error: error.message || "Falha de conexao com a Meta.", template };
+    return { ok: false, providerMessageId: null, error: normalizeTemplateError(error.message || "Falha de conexao com a Meta."), template };
   }
 }
 
@@ -118,6 +118,14 @@ async function submitMetaTemplate(env, wabaId, template) {
     id: data.id || null,
     error: response.ok ? null : data.error?.message || "Falha ao submeter template.",
   };
+}
+
+function normalizeTemplateError(message) {
+  const text = String(message || "");
+  if (text.includes("#132001") || text.toLowerCase().includes("template name does not exist")) {
+    return "Template ainda nao existe/aprovou na Meta. Clique em Submeter templates e aguarde a aprovacao antes de enviar.";
+  }
+  return text;
 }
 
 async function getWhatsAppBusinessAccountId(env) {
