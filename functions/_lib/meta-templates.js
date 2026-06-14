@@ -35,6 +35,24 @@ export async function submitMetaTemplates(env) {
   return results;
 }
 
+export async function getRemoteMetaTemplates(env) {
+  const wabaId = await getWhatsAppBusinessAccountId(env);
+  if (!env.META_ACCESS_TOKEN || !wabaId) {
+    throw new Error("Configure META_WABA_ID nos secrets do Pages para consultar templates na Meta.");
+  }
+
+  const names = META_TEMPLATES.map((template) => template.name);
+  const response = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/message_templates?fields=name,status,language,category,rejected_reason&limit=100`, {
+    headers: { authorization: `Bearer ${env.META_ACCESS_TOKEN}` },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error?.message || "Falha ao consultar templates na Meta.");
+  }
+
+  return (data.data || []).filter((template) => names.includes(template.name));
+}
+
 export async function sendMetaTemplateMessage(env, contact, templateId = "reengagement") {
   if (!env.META_ACCESS_TOKEN || !env.META_PHONE_NUMBER_ID) {
     return { ok: false, providerMessageId: null, error: "META_ACCESS_TOKEN ou META_PHONE_NUMBER_ID nao configurado." };
