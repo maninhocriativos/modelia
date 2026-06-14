@@ -153,6 +153,25 @@ export async function insertTemplateOutbound(env, contact, result, template) {
     .run();
 }
 
+export function isMetaReengagementError(result) {
+  const error = String(result?.error || "");
+  return error.includes("131047") || error.toLowerCase().includes("re-engagement");
+}
+
+export async function sendReactivationTemplate(env, contact, templateId = "support_followup") {
+  const template = getMetaTemplate(templateId);
+  const result = await sendMetaTemplateMessage(env, contact, template.id);
+  await insertTemplateOutbound(env, contact, result, template);
+
+  const activities = parseJsonArray(contact.activities);
+  const activity = result.ok ? `Template automatico enviado: ${template.label}` : `Template automatico falhou: ${template.label}`;
+  await env.DB.prepare("UPDATE contacts SET activities = ?, updated_at = datetime('now') WHERE id = ?")
+    .bind(JSON.stringify([activity, ...activities.filter((item) => item !== activity)]), contact.id)
+    .run();
+
+  return result;
+}
+
 async function submitMetaTemplate(env, wabaId, template) {
   const response = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/message_templates`, {
     method: "POST",
@@ -193,6 +212,15 @@ function normalizeTemplateError(message) {
     return "Template ainda nao existe/aprovou na Meta. Clique em Submeter templates e aguarde a aprovacao antes de enviar.";
   }
   return text;
+}
+
+function parseJsonArray(value) {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 async function getWhatsAppBusinessAccountId(env) {

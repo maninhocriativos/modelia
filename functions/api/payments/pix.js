@@ -2,6 +2,7 @@ import { buildAsaasPaymentMessage, createAsaasPayment } from "../../_lib/asaas.j
 import { createId, json, readJson } from "../../_lib/http.js";
 import { sendMetaMessage } from "../../_lib/lia-agent.js";
 import { parseJson } from "../../_lib/leads.js";
+import { isMetaReengagementError, sendReactivationTemplate } from "../../_lib/meta-templates.js";
 
 export async function onRequestPost({ env, request }) {
   const body = await readJson(request);
@@ -28,11 +29,14 @@ export async function onRequestPost({ env, request }) {
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-       VALUES (?, ?, 'outbound', ?, ?, ?, 'asaas-payment', ?, ?)`
-    ).bind(createId("msg"), contact.id, reply.text, reply.mediaUrl, reply.mediaType, result.providerMessageId, result.ok ? "sent" : "failed"),
+      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status, provider_error)
+       VALUES (?, ?, 'outbound', ?, ?, ?, 'asaas-payment', ?, ?, ?)`
+    ).bind(createId("msg"), contact.id, reply.text, reply.mediaUrl, reply.mediaType, result.providerMessageId, result.ok ? "sent" : "failed", result.error || ""),
     env.DB.prepare("UPDATE contacts SET stage = 'proposta', activities = ?, updated_at = datetime('now') WHERE id = ?").bind(JSON.stringify(nextActivities), contact.id),
   ]);
+  if (isMetaReengagementError(result)) {
+    await sendReactivationTemplate(env, contact, "payment_followup");
+  }
 
   return json({ payment, messageStatus: result.ok ? "sent" : "failed", providerMessageId: result.providerMessageId, error: result.error || null }, { status: 201 });
 }

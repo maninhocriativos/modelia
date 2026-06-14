@@ -2,6 +2,7 @@ import { createId, json, readJson } from "../../_lib/http.js";
 import { buildAsaasPaymentMessage, createAsaasPayment } from "../../_lib/asaas.js";
 import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, sendMetaAudioMessage, sendMetaMessage } from "../../_lib/lia-agent.js";
 import { parseJson } from "../../_lib/leads.js";
+import { isMetaReengagementError, sendReactivationTemplate } from "../../_lib/meta-templates.js";
 
 export async function onRequestGet({ env, request }) {
   const url = new URL(request.url);
@@ -71,6 +72,7 @@ function extractMessages(payload) {
 
 function getText(message) {
   if (message.text?.body) return message.text.body;
+  if (message.button?.payload) return mapTemplateButtonPayload(message.button.payload, message.button.text);
   if (message.button?.text) return message.button.text;
   if (message.interactive?.button_reply?.title) return message.interactive.button_reply.title;
   if (message.interactive?.list_reply?.title) return message.interactive.list_reply.title;
@@ -78,6 +80,17 @@ function getText(message) {
   if (message.video?.caption) return message.video.caption;
   if (message.document?.caption) return message.document.caption;
   return "";
+}
+
+function mapTemplateButtonPayload(payload, fallback = "") {
+  const value = String(payload || "").toLowerCase();
+  if (["continue_yes", "continue_service", "continue_payment"].includes(value)) return "Quero continuar o atendimento";
+  if (["see_options", "send_options"].includes(value)) return "Quero ver as opcoes";
+  if (["need_help"].includes(value)) return "Preciso de ajuda";
+  if (["talk_later", "not_now"].includes(value)) return "Agora nao, talvez depois";
+  if (["stop", "no_updates"].includes(value)) return "Nao quero receber mensagens";
+  if (["yes_updates"].includes(value)) return "Pode enviar atualizacoes";
+  return fallback || payload;
 }
 
 function getMedia(message) {
@@ -377,6 +390,13 @@ async function sendAutomaticReply(env, request, contact) {
   const rows = await env.DB.prepare("SELECT * FROM messages WHERE contact_id = ? ORDER BY unixepoch(created_at) ASC, created_at ASC")
     .bind(contact.id)
     .all();
+  const lastInbound = [...(rows.results || [])].reverse().find((message) => message.direction === "inbound");
+  if (shouldStopAfterTemplateReply(lastInbound?.text)) {
+    await env.DB.prepare("UPDATE contacts SET activities = ?, updated_at = datetime('now') WHERE id = ?")
+      .bind(JSON.stringify(["Cliente pediu para parar mensagens"]), contact.id)
+      .run();
+    return;
+  }
 
   const sampleUrl = buildSampleImageUrl(env, request);
   const sampleVideoUrl = buildSampleVideoUrl(env, request);
@@ -401,6 +421,7 @@ async function sendAutomaticReply(env, request, contact) {
     return;
   }
 
+  let reactivationSent = false;
   for (const [index, reply] of expandedReplies.entries()) {
     if (index > 0) await sleep(900);
 
@@ -416,38 +437,20 @@ async function sendAutomaticReply(env, request, contact) {
 
     if (shouldSendAudio(env, reply, rows.results || [])) {
       const audioResult = await sendMetaAudioMessage(env, contact.phone, reply.text);
-      await env.DB.prepare(
-        `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-         VALUES (?, ?, 'outbound', ?, ?, ?, 'meta-auto', ?, ?)`
-      )
-        .bind(
-          createId("msg"),
-          contact.id,
-          "[audio da Lia]",
-          null,
-          "audio",
-          audioResult.providerMessageId,
-          audioResult.ok ? "sent" : "failed"
-        )
-        .run();
+      await insertOutboundMessage(env, contact.id, { text: "[audio da Lia]", mediaType: "audio" }, audioResult, "meta-auto");
+      if (!reactivationSent && isMetaReengagementError(audioResult)) {
+        await sendReactivationTemplate(env, contact, "support_followup");
+        reactivationSent = true;
+      }
       continue;
     }
 
     const result = await sendMetaMessage(env, contact.phone, reply);
-    await env.DB.prepare(
-      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-       VALUES (?, ?, 'outbound', ?, ?, ?, 'meta-auto', ?, ?)`
-    )
-      .bind(
-        createId("msg"),
-        contact.id,
-        reply.text || "",
-        reply.mediaUrl || null,
-        reply.mediaType || null,
-        result.providerMessageId,
-        result.ok ? "sent" : "failed"
-      )
-      .run();
+    await insertOutboundMessage(env, contact.id, reply, result, "meta-auto");
+    if (!reactivationSent && isMetaReengagementError(result)) {
+      await sendReactivationTemplate(env, contact, "support_followup");
+      reactivationSent = true;
+    }
 
     if (reply.sampleVideoUrl) {
       const videoReply = {
@@ -461,11 +464,19 @@ async function sendAutomaticReply(env, request, contact) {
   }
 }
 
+function shouldStopAfterTemplateReply(text) {
+  const value = normalizeText(text || "");
+  return value.includes("nao quero receber mensagens") || value === "parar";
+}
+
 async function sendAsaasPaymentReply(env, request, contact, packId) {
   const payment = await createAsaasPayment(env, request, contact, packId);
   const reply = buildAsaasPaymentMessage(payment);
   const result = await sendMetaMessage(env, contact.phone, reply);
   await insertOutboundMessage(env, contact.id, reply, result, "asaas-payment");
+  if (isMetaReengagementError(result)) {
+    await sendReactivationTemplate(env, contact, "payment_followup");
+  }
   await env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id).run();
 }
 
@@ -667,8 +678,8 @@ async function uploadMetaImage(env, imageBytes) {
 
 async function insertOutboundMessage(env, contactId, reply, result, provider) {
   await env.DB.prepare(
-    `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-     VALUES (?, ?, 'outbound', ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status, provider_error)
+     VALUES (?, ?, 'outbound', ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       createId("msg"),
@@ -678,7 +689,8 @@ async function insertOutboundMessage(env, contactId, reply, result, provider) {
       reply.mediaType || null,
       provider,
       result.providerMessageId,
-      result.ok ? "sent" : "failed"
+      result.ok ? "sent" : "failed",
+      result.error || ""
     )
     .run();
 }

@@ -2,6 +2,7 @@ import { createId, json, readJson } from "../../../_lib/http.js";
 import { buildAsaasPaymentMessage, createAsaasPayment } from "../../../_lib/asaas.js";
 import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, sendMetaMessage } from "../../../_lib/lia-agent.js";
 import { parseJson } from "../../../_lib/leads.js";
+import { isMetaReengagementError, sendReactivationTemplate } from "../../../_lib/meta-templates.js";
 
 export async function onRequestPost({ env, params, request }) {
   const body = await readJson(request);
@@ -27,6 +28,9 @@ export async function onRequestPost({ env, params, request }) {
     providerMessageId = result.providerMessageId;
     status = result.ok ? "sent" : "failed";
     providerError = result.error;
+    if (isMetaReengagementError(result)) {
+      await sendReactivationTemplate(env, contact, "support_followup");
+    }
   }
 
   await env.DB.batch([
@@ -80,20 +84,12 @@ async function sendAutomaticReply(env, request, contact) {
   }
 
   const result = await sendMetaMessage(env, contact.phone, reply);
-  await env.DB.prepare(
-    `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-     VALUES (?, ?, 'outbound', ?, ?, ?, 'meta-auto', ?, ?)`
-  )
-    .bind(
-      createId("msg"),
-      contact.id,
-      reply.text || "",
-      reply.mediaUrl || null,
-      reply.mediaType || null,
-      result.providerMessageId,
-      result.ok ? "sent" : "failed"
-    )
-    .run();
+  await insertOutboundMessage(env, contact.id, reply, result, "meta-auto");
+  let reactivationSent = false;
+  if (isMetaReengagementError(result)) {
+    await sendReactivationTemplate(env, contact, "support_followup");
+    reactivationSent = true;
+  }
 
   if (reply.sampleVideoUrl) {
     const videoReply = {
@@ -102,20 +98,10 @@ async function sendAutomaticReply(env, request, contact) {
       mediaType: "video",
     };
     const videoResult = await sendMetaMessage(env, contact.phone, videoReply);
-    await env.DB.prepare(
-      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-       VALUES (?, ?, 'outbound', ?, ?, ?, 'meta-auto', ?, ?)`
-    )
-      .bind(
-        createId("msg"),
-        contact.id,
-        videoReply.text,
-        videoReply.mediaUrl,
-        videoReply.mediaType,
-        videoResult.providerMessageId,
-        videoResult.ok ? "sent" : "failed"
-      )
-      .run();
+    await insertOutboundMessage(env, contact.id, videoReply, videoResult, "meta-auto");
+    if (!reactivationSent && isMetaReengagementError(videoResult)) {
+      await sendReactivationTemplate(env, contact, "support_followup");
+    }
   }
 }
 
@@ -126,9 +112,31 @@ async function sendAsaasPaymentReply(env, request, contact, packId) {
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status)
-       VALUES (?, ?, 'outbound', ?, ?, ?, 'asaas-payment', ?, ?)`
-    ).bind(createId("msg"), contact.id, reply.text, reply.mediaUrl, reply.mediaType, result.providerMessageId, result.ok ? "sent" : "failed"),
+      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status, provider_error)
+       VALUES (?, ?, 'outbound', ?, ?, ?, 'asaas-payment', ?, ?, ?)`
+    ).bind(createId("msg"), contact.id, reply.text, reply.mediaUrl, reply.mediaType, result.providerMessageId, result.ok ? "sent" : "failed", result.error || ""),
     env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id),
   ]);
+  if (isMetaReengagementError(result)) {
+    await sendReactivationTemplate(env, contact, "payment_followup");
+  }
+}
+
+async function insertOutboundMessage(env, contactId, reply, result, provider) {
+  await env.DB.prepare(
+    `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status, provider_error)
+     VALUES (?, ?, 'outbound', ?, ?, ?, ?, ?, ?, ?)`
+  )
+    .bind(
+      createId("msg"),
+      contactId,
+      reply.text || "",
+      reply.mediaUrl || null,
+      reply.mediaType || null,
+      provider,
+      result.providerMessageId,
+      result.ok ? "sent" : "failed",
+      result.error || ""
+    )
+    .run();
 }
