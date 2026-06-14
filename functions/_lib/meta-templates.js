@@ -23,13 +23,14 @@ export function getMetaTemplate(templateId = "reengagement") {
 }
 
 export async function submitMetaTemplates(env) {
-  if (!env.META_ACCESS_TOKEN || !env.META_WABA_ID) {
+  const wabaId = await getWhatsAppBusinessAccountId(env);
+  if (!env.META_ACCESS_TOKEN || !wabaId) {
     throw new Error("META_ACCESS_TOKEN ou META_WABA_ID nao configurado.");
   }
 
   const results = [];
   for (const template of META_TEMPLATES) {
-    results.push(await submitMetaTemplate(env, template));
+    results.push(await submitMetaTemplate(env, wabaId, template));
   }
   return results;
 }
@@ -85,8 +86,8 @@ export async function insertTemplateOutbound(env, contact, result, template) {
     .run();
 }
 
-async function submitMetaTemplate(env, template) {
-  const response = await fetch(`https://graph.facebook.com/v21.0/${env.META_WABA_ID}/message_templates`, {
+async function submitMetaTemplate(env, wabaId, template) {
+  const response = await fetch(`https://graph.facebook.com/v21.0/${wabaId}/message_templates`, {
     method: "POST",
     headers: {
       authorization: `Bearer ${env.META_ACCESS_TOKEN}`,
@@ -117,6 +118,18 @@ async function submitMetaTemplate(env, template) {
     id: data.id || null,
     error: response.ok ? null : data.error?.message || "Falha ao submeter template.",
   };
+}
+
+async function getWhatsAppBusinessAccountId(env) {
+  if (env.META_WABA_ID) return env.META_WABA_ID;
+  if (!env.META_ACCESS_TOKEN || !env.META_PHONE_NUMBER_ID) return "";
+
+  const response = await fetch(`https://graph.facebook.com/v21.0/${env.META_PHONE_NUMBER_ID}?fields=whatsapp_business_account`, {
+    headers: { authorization: `Bearer ${env.META_ACCESS_TOKEN}` },
+  });
+  const data = await response.json().catch(() => ({}));
+
+  return response.ok ? data.whatsapp_business_account?.id || "" : "";
 }
 
 function buildTemplatePayload(to, contact, template) {
