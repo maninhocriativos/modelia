@@ -1421,6 +1421,22 @@ if (els.createPixButton) {
     const lead = getActiveLead();
     if (!lead || !state.apiEnabled) return;
 
+    if (!lead.cpfCnpj) {
+      const informedTaxId = prompt("Informe o CPF ou CNPJ do titular para gerar o pagamento:");
+      if (informedTaxId === null) return;
+      const cpfCnpj = informedTaxId.replace(/\D/g, "");
+      if (![11, 14].includes(cpfCnpj.length)) {
+        alert("Informe um CPF com 11 digitos ou CNPJ com 14 digitos.");
+        return;
+      }
+      try {
+        await persistLeadUpdate(lead, { cpfCnpj });
+      } catch (error) {
+        alert(`Nao foi possivel salvar o CPF/CNPJ: ${error.message}`);
+        return;
+      }
+    }
+
     renderSyncStatus("Gerando pagamento...");
     try {
       await api("/api/payments/asaas", {

@@ -770,6 +770,11 @@ function buildAfterSampleTease(name, messages) {
 function buildCheckoutMessage(name, packId, payment = {}, agentText = "") {
   const pack = PACKS.find((item) => item.id === packId) || PACKS[0];
   if (payment.provider === "asaas") {
+    if (!payment.cpfCnpj) {
+      return {
+        text: `Fechei o ${pack.title} por ${pack.description}. Pra eu gerar o pagamento seguro por Pix ou cartao, me manda o CPF do titular, por favor.`,
+      };
+    }
     return {
       text:
         String(agentText || "").trim() ||
@@ -797,7 +802,7 @@ function buildCheckoutMessage(name, packId, payment = {}, agentText = "") {
 
 function buildPaymentConfig(env, contact) {
   if (env.ASAAS_API_KEY) {
-    return { provider: "asaas" };
+    return { provider: "asaas", cpfCnpj: String(contact?.cpf_cnpj || "").replace(/\D/g, "") };
   }
 
   return {

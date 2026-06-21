@@ -17,6 +17,15 @@ export async function onRequestPatch({ env, params, request }) {
     values.push(body.notes);
   }
 
+  if (typeof body.cpfCnpj === "string") {
+    const cpfCnpj = body.cpfCnpj.replace(/\D/g, "");
+    if (![11, 14].includes(cpfCnpj.length)) {
+      return json({ error: "Informe um CPF ou CNPJ valido." }, { status: 400 });
+    }
+    updates.push("cpf_cnpj = ?");
+    values.push(cpfCnpj);
+  }
+
   if (Array.isArray(body.activities)) {
     updates.push("activities = ?");
     values.push(JSON.stringify(body.activities));

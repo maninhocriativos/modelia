@@ -3,6 +3,7 @@ export function mapContact(row, messages = []) {
     id: row.id,
     name: row.name,
     phone: row.phone,
+    cpfCnpj: row.cpf_cnpj || "",
     interest: row.interest,
     source: row.source,
     stage: row.stage,

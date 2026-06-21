@@ -33,7 +33,8 @@ export async function onRequestPost({ env, request }) {
     const enrichedEvent = await enrichInboundEvent(env, event);
     const stored = await storeInboundMessage(env.DB, enrichedEvent);
     if (stored.inserted) {
-      const contact = await persistAgeDecision(env.DB, stored.contact, enrichedEvent.text);
+      const contactWithAge = await persistAgeDecision(env.DB, stored.contact, enrichedEvent.text);
+      const contact = await persistTaxId(env.DB, contactWithAge, enrichedEvent.text);
       await sendAutomaticReply(env, request, contact);
       replied += 1;
     }
@@ -410,6 +411,16 @@ async function persistAgeDecision(db, contact, text) {
     .run();
 
   return { ...contact, tags: JSON.stringify(tags), activities: JSON.stringify(activities) };
+}
+
+async function persistTaxId(db, contact, text) {
+  const raw = String(text || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  const looksLikeTaxId = /cpf|cnpj/i.test(raw) || /^[\d.\-\/\s]+$/.test(raw);
+  if (!looksLikeTaxId || ![11, 14].includes(digits.length)) return contact;
+
+  await db.prepare("UPDATE contacts SET cpf_cnpj = ?, updated_at = datetime('now') WHERE id = ?").bind(digits, contact.id).run();
+  return { ...contact, cpf_cnpj: digits };
 }
 
 async function sendAutomaticReply(env, request, contact) {

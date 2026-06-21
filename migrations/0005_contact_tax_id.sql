@@ -1,0 +1,1 @@
+ALTER TABLE contacts ADD COLUMN cpf_cnpj TEXT NOT NULL DEFAULT '';

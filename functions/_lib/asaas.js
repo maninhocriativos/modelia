@@ -123,11 +123,17 @@ function mapAsaasStatus(status) {
 }
 
 async function createAsaasCustomer(env, contact) {
+  const cpfCnpj = onlyDigits(contact.cpf_cnpj || contact.cpfCnpj || "");
+  if (![11, 14].includes(cpfCnpj.length)) {
+    throw new Error("Informe o CPF ou CNPJ do cliente antes de gerar o pagamento.");
+  }
+
   return asaasFetch(env, "/customers", {
     method: "POST",
     body: {
       name: contact.name || "Cliente Modelia",
       mobilePhone: onlyDigits(contact.phone || ""),
+      cpfCnpj,
       externalReference: contact.id,
     },
   });
