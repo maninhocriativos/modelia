@@ -139,6 +139,7 @@ async function asaasFetch(env, path, options = {}) {
     method: options.method || "GET",
     headers: {
       "content-type": "application/json",
+      "user-agent": "Modelia CRM/1.0",
       access_token: env.ASAAS_API_KEY,
     },
     body: options.body ? JSON.stringify(options.body) : undefined,
