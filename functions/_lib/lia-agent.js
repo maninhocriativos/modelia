@@ -772,13 +772,13 @@ function buildCheckoutMessage(name, packId, payment = {}, agentText = "") {
   if (payment.provider === "asaas") {
     if (!payment.cpfCnpj) {
       return {
-        text: `Fechei o ${pack.title} por ${pack.description}. Pra eu gerar o pagamento seguro por Pix ou cartao, me manda o CPF do titular, por favor.`,
+        text: `Fechei o ${pack.title} por ${pack.description}. Pra eu gerar o pagamento seguro por Pix, me manda o CPF do titular, por favor.`,
       };
     }
     return {
       text:
         String(agentText || "").trim() ||
-        `Fechei o ${pack.title} por ${pack.description}. Vou gerar teu pagamento por Pix ou cartao e te mando aqui no WhatsApp.`,
+        `Fechei o ${pack.title} por ${pack.description}. Vou gerar teu pagamento por Pix e te mando aqui no WhatsApp.`,
       paymentRequest: {
         provider: "asaas",
         packId: pack.id,

@@ -26,7 +26,7 @@ export async function createAsaasPayment(env, request, contact, packId) {
     method: "POST",
     body: {
       customer: customer.id,
-      billingType: "UNDEFINED",
+      billingType: "PIX",
       value: Number(pack.amount || 0),
       dueDate,
       description: `Modelia - ${pack.title}`,
@@ -66,7 +66,7 @@ export async function createAsaasPayment(env, request, contact, packId) {
     packTitle: pack.title,
     amount: Number(pack.amount || 0),
     status: "pending",
-    billingType: "UNDEFINED",
+    billingType: "PIX",
     pixPayload: qrCode.payload || "",
     qrImageUrl: qrImage ? qrUrl : "",
     invoiceUrl: payment.invoiceUrl || payment.bankSlipUrl || "",
@@ -79,11 +79,11 @@ export async function createAsaasPixPayment(env, request, contact, packId) {
 
 export function buildAsaasPaymentMessage(payment) {
   const amount = formatCurrency(payment.amount);
-  const paymentLink = payment.invoiceUrl ? `\n\nLink para pagar com cartao ou Pix:\n${payment.invoiceUrl}` : "";
+  const paymentLink = payment.invoiceUrl ? `\n\nLink para pagar por Pix:\n${payment.invoiceUrl}` : "";
   const pix = payment.pixPayload ? `\n\nPix copia e cola:\n${payment.pixPayload}` : "";
 
   return {
-    text: `Fechei pra voce: ${payment.packTitle} por ${amount}.\n\nPode pagar por Pix ou cartao.${paymentLink}${pix}\n\nAssim que o pagamento cair, eu confirmo aqui e libero o pack completo automaticamente.`,
+    text: `Fechei pra voce: ${payment.packTitle} por ${amount}.\n\nPode pagar por Pix.${paymentLink}${pix}\n\nAssim que o pagamento cair, eu confirmo aqui e libero o pack completo automaticamente.`,
     mediaUrl: payment.qrImageUrl || null,
     mediaType: payment.qrImageUrl ? "image" : null,
   };
@@ -159,11 +159,7 @@ async function asaasFetch(env, path, options = {}) {
 }
 
 async function getAsaasPixQrCode(env, paymentId) {
-  try {
-    return await asaasFetch(env, `/payments/${encodeURIComponent(paymentId)}/pixQrCode`);
-  } catch (error) {
-    return { payload: "", encodedImage: "" };
-  }
+  return asaasFetch(env, `/payments/${encodeURIComponent(paymentId)}/pixQrCode`);
 }
 
 function getAsaasBaseUrl(env) {
