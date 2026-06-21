@@ -1,4 +1,6 @@
 .git/
+.preview/
+modelia-vendas/
 .screenshots/
 .wrangler/
 .deploy/
