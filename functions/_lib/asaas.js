@@ -84,8 +84,8 @@ export function buildAsaasPaymentMessage(payment) {
 
   return {
     text: `Fechei pra voce: ${payment.packTitle} por ${amount}.\n\nSeu pagamento por Pix esta pronto.${paymentLink}${pix}\n\nAssim que o pagamento for confirmado, eu libero o pack completo automaticamente.`,
-    mediaUrl: payment.qrImageUrl || null,
-    mediaType: payment.qrImageUrl ? "image" : null,
+    mediaUrl: null,
+    mediaType: null,
   };
 }
 
