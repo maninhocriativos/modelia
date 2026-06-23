@@ -1,6 +1,7 @@
 import { buildAsaasPaymentMessage, createAsaasPayment, findPack } from "../../_lib/asaas.js";
 import { createId, json, readJson } from "../../_lib/http.js";
 import { deliverPaidPack } from "../../_lib/pack-delivery.js";
+import { isFullDiscountCoupon, maskCoupon } from "../../_lib/coupons.js";
 import { sendMetaMessage } from "../../_lib/lia-agent.js";
 import { parseJson } from "../../_lib/leads.js";
 import { isMetaReengagementError, sendReactivationTemplate } from "../../_lib/meta-templates.js";
@@ -135,19 +136,4 @@ async function createCouponPaidPayment(env, contact, packId, coupon) {
     qrImageUrl: "",
     invoiceUrl: "",
   };
-}
-
-function isFullDiscountCoupon(env, coupon) {
-  const expected = normalizeCoupon(env.FULL_DISCOUNT_COUPON || "");
-  return Boolean(expected) && normalizeCoupon(coupon) === expected;
-}
-
-function normalizeCoupon(value) {
-  return String(value || "").trim().toUpperCase().replace(/\s+/g, "");
-}
-
-function maskCoupon(value) {
-  const normalized = normalizeCoupon(value);
-  if (normalized.length <= 4) return "****";
-  return `${normalized.slice(0, 2)}***${normalized.slice(-2)}`;
 }

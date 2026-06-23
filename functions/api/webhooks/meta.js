@@ -1,8 +1,10 @@
 import { createId, json, readJson } from "../../_lib/http.js";
 import { buildAsaasPaymentMessage, createAsaasPayment } from "../../_lib/asaas.js";
-import { buildLiaRepliesWithAi, classifyAgeReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, sendMetaAudioMessage, sendMetaMessage } from "../../_lib/lia-agent.js";
+import { buildLiaRepliesWithAi, classifyAgeReply, classifyPackReply, LIA_SAMPLE_IMAGE_PATH, LIA_SAMPLE_VIDEO_PATH, mergeAgeTags, PACKS, sendMetaAudioMessage, sendMetaMessage } from "../../_lib/lia-agent.js";
+import { isFullDiscountCoupon } from "../../_lib/coupons.js";
 import { parseJson } from "../../_lib/leads.js";
 import { isMetaReengagementError, sendReactivationTemplate } from "../../_lib/meta-templates.js";
+import { onRequestPost as createPixPayment } from "../payments/pix.js";
 
 export async function onRequestGet({ env, request }) {
   const url = new URL(request.url);
@@ -442,6 +444,9 @@ async function sendAutomaticReply(env, request, contact) {
 
   const sampleUrl = buildSampleImageUrl(env, request);
   const sampleVideoUrl = buildSampleVideoUrl(env, request);
+  if (await handleFullDiscountCoupon(env, request, contact, rows.results || [], lastInbound?.text || "")) {
+    return;
+  }
   const replies = await buildLiaRepliesWithAi(env, contact, rows.results || [], { sampleUrl, sampleVideoUrl });
 
   const expandedReplies = limitReplies(replies);
@@ -520,6 +525,59 @@ async function sendAsaasPaymentReply(env, request, contact, packId) {
     await sendReactivationTemplate(env, contact, "payment_followup");
   }
   await env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id).run();
+}
+
+async function handleFullDiscountCoupon(env, request, contact, messages, text) {
+  if (!isFullDiscountCoupon(env, text)) return false;
+
+  const packId = inferPackForCoupon(contact, messages);
+  if (!packId) {
+    const reply = {
+      text: "Cupom aceito. Agora escolhe qual pack voce quer liberar:",
+      buttons: PACKS.map((pack) => ({
+        id: pack.id,
+        title: pack.title,
+        description: pack.description,
+      })),
+    };
+    const result = await sendMetaMessage(env, contact.phone, reply);
+    await insertOutboundMessage(env, contact.id, reply, result, "coupon");
+    return true;
+  }
+
+  const response = await createPixPayment({
+    env,
+    request: new Request(request.url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        contactId: contact.id,
+        packId,
+        coupon: text,
+        source: "whatsapp",
+        silent: true,
+      }),
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const reply = { text: data.error || "Nao consegui aplicar esse cupom agora. Tenta de novo em instantes." };
+    const result = await sendMetaMessage(env, contact.phone, reply);
+    await insertOutboundMessage(env, contact.id, reply, result, "coupon");
+  }
+  return true;
+}
+
+function inferPackForCoupon(contact, messages) {
+  const fromInterest = classifyPackReply(contact?.interest || "");
+  if (fromInterest) return fromInterest;
+
+  for (const message of [...messages].reverse()) {
+    const packId = classifyPackReply(message.text || "");
+    if (packId) return packId;
+  }
+
+  return null;
 }
 
 function sleep(ms) {
