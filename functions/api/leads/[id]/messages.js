@@ -45,6 +45,7 @@ export async function onRequestPost({ env, params, request }) {
 
   if (direction === "inbound") {
     contact = await persistAgeDecision(env.DB, contact, text);
+    contact = await persistTaxId(env.DB, contact, text);
     await sendAutomaticReply(env, request, contact);
   }
 
@@ -69,6 +70,16 @@ async function persistAgeDecision(db, contact, text) {
   return { ...contact, tags: JSON.stringify(tags), activities: JSON.stringify(activities) };
 }
 
+async function persistTaxId(db, contact, text) {
+  const raw = String(text || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  const looksLikeTaxId = /cpf|cnpj/i.test(raw) || /^[\d.\-\/\s]+$/.test(raw);
+  if (!looksLikeTaxId || ![11, 14].includes(digits.length)) return contact;
+
+  await db.prepare("UPDATE contacts SET cpf_cnpj = ?, updated_at = datetime('now') WHERE id = ?").bind(digits, contact.id).run();
+  return { ...contact, cpf_cnpj: digits };
+}
+
 async function sendAutomaticReply(env, request, contact) {
   const rows = await env.DB.prepare("SELECT * FROM messages WHERE contact_id = ? ORDER BY unixepoch(created_at) ASC, created_at ASC")
     .bind(contact.id)
@@ -76,6 +87,9 @@ async function sendAutomaticReply(env, request, contact) {
   const sampleUrl = new URL(LIA_SAMPLE_IMAGE_PATH, request.url).toString();
   const sampleVideoUrl = new URL(LIA_SAMPLE_VIDEO_PATH, request.url).toString();
   const lastInbound = [...(rows.results || [])].reverse().find((message) => message.direction === "inbound");
+  if (await handleTaxIdCheckout(env, request, contact, rows.results || [], lastInbound?.text || "")) {
+    return;
+  }
   if (await handleFullDiscountCoupon(env, request, contact, rows.results || [], lastInbound?.text || "")) {
     return;
   }
@@ -126,6 +140,28 @@ async function sendAsaasPaymentReply(env, request, contact, packId) {
   if (isMetaReengagementError(result)) {
     await sendReactivationTemplate(env, contact, "payment_followup");
   }
+}
+
+async function handleTaxIdCheckout(env, request, contact, messages, text) {
+  if (!isTaxIdText(text) || !hasValidTaxId(contact)) return false;
+
+  const packId = inferPackForCoupon(contact, messages);
+  if (!packId) {
+    const reply = {
+      text: "CPF recebido. Agora escolhe qual pack voce quer que eu gere o Pix:",
+      buttons: PACKS.map((pack) => ({
+        id: pack.id,
+        title: pack.title,
+        description: pack.description,
+      })),
+    };
+    const result = await sendMetaMessage(env, contact.phone, reply);
+    await insertOutboundMessage(env, contact.id, reply, result, "asaas-payment");
+    return true;
+  }
+
+  await sendAsaasPaymentReply(env, request, contact, packId);
+  return true;
 }
 
 async function handleFullDiscountCoupon(env, request, contact, messages, text) {
@@ -179,6 +215,17 @@ function inferPackForCoupon(contact, messages) {
   }
 
   return null;
+}
+
+function isTaxIdText(text) {
+  const raw = String(text || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  const looksLikeTaxId = /cpf|cnpj/i.test(raw) || /^[\d.\-\/\s]+$/.test(raw);
+  return looksLikeTaxId && [11, 14].includes(digits.length);
+}
+
+function hasValidTaxId(contact) {
+  return [11, 14].includes(String(contact?.cpf_cnpj || "").replace(/\D/g, "").length);
 }
 
 async function insertOutboundMessage(env, contactId, reply, result, provider) {

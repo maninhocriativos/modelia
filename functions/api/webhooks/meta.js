@@ -444,6 +444,9 @@ async function sendAutomaticReply(env, request, contact) {
 
   const sampleUrl = buildSampleImageUrl(env, request);
   const sampleVideoUrl = buildSampleVideoUrl(env, request);
+  if (await handleTaxIdCheckout(env, request, contact, rows.results || [], lastInbound?.text || "")) {
+    return;
+  }
   if (await handleFullDiscountCoupon(env, request, contact, rows.results || [], lastInbound?.text || "")) {
     return;
   }
@@ -527,6 +530,28 @@ async function sendAsaasPaymentReply(env, request, contact, packId) {
   await env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id).run();
 }
 
+async function handleTaxIdCheckout(env, request, contact, messages, text) {
+  if (!isTaxIdText(text) || !hasValidTaxId(contact)) return false;
+
+  const packId = inferPackForCoupon(contact, messages);
+  if (!packId) {
+    const reply = {
+      text: "CPF recebido. Agora escolhe qual pack voce quer que eu gere o Pix:",
+      buttons: PACKS.map((pack) => ({
+        id: pack.id,
+        title: pack.title,
+        description: pack.description,
+      })),
+    };
+    const result = await sendMetaMessage(env, contact.phone, reply);
+    await insertOutboundMessage(env, contact.id, reply, result, "asaas-payment");
+    return true;
+  }
+
+  await sendAsaasPaymentReply(env, request, contact, packId);
+  return true;
+}
+
 async function handleFullDiscountCoupon(env, request, contact, messages, text) {
   if (!isFullDiscountCoupon(env, text)) return false;
 
@@ -578,6 +603,17 @@ function inferPackForCoupon(contact, messages) {
   }
 
   return null;
+}
+
+function isTaxIdText(text) {
+  const raw = String(text || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  const looksLikeTaxId = /cpf|cnpj/i.test(raw) || /^[\d.\-\/\s]+$/.test(raw);
+  return looksLikeTaxId && [11, 14].includes(digits.length);
+}
+
+function hasValidTaxId(contact) {
+  return [11, 14].includes(String(contact?.cpf_cnpj || "").replace(/\D/g, "").length);
 }
 
 function sleep(ms) {

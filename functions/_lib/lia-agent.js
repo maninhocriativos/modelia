@@ -810,7 +810,7 @@ function buildCheckoutMessage(name, packId, payment = {}, agentText = "") {
   if (payment.provider === "asaas") {
     if (!payment.cpfCnpj) {
       return {
-        text: `Fechei o ${pack.title} por ${pack.description}. Pra eu gerar o pagamento seguro por Pix, me manda o CPF do titular, por favor.`,
+        text: `Fechei o ${pack.title} por ${pack.description}. Pra eu gerar o pagamento seguro por Pix, me manda o CPF do titular, por favor.\n\nSe tiver cupom, pode mandar o cupom aqui no lugar do CPF.`,
       };
     }
     return {
