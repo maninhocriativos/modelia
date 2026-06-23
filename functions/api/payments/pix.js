@@ -9,6 +9,7 @@ export async function onRequestPost({ env, request }) {
     const body = await readJson(request);
     const contactId = String(body.contactId || body.leadId || "").trim();
     const packId = String(body.packId || "pack_30_fotos").trim();
+    let silent = body.silent === true || body.source === "landing";
 
     if (!contactId) {
       return json({ error: "Informe contactId." }, { status: 400 });
@@ -18,10 +19,14 @@ export async function onRequestPost({ env, request }) {
     if (!contact) {
       return json({ error: "Contato nao encontrado." }, { status: 404 });
     }
+    const contactTags = parseJson(contact.tags, []);
+    silent = silent || contact.source === "Página de vendas" || contactTags.includes("landing-page");
 
     const payment = await createAsaasPayment(env, request, contact, packId);
     const reply = buildAsaasPaymentMessage(payment);
-    const result = await sendMetaMessage(env, contact.phone, reply);
+    const result = silent
+      ? { ok: true, providerMessageId: null, error: null }
+      : await sendMetaMessage(env, contact.phone, reply);
     const activities = parseJson(contact.activities, []);
     const nextActivities = [
       `Aguardando pagamento ${payment.packTitle}`,
@@ -35,11 +40,16 @@ export async function onRequestPost({ env, request }) {
       ).bind(createId("msg"), contact.id, reply.text, reply.mediaUrl, reply.mediaType, result.providerMessageId, result.ok ? "sent" : "failed", result.error || ""),
       env.DB.prepare("UPDATE contacts SET stage = 'proposta', activities = ?, updated_at = datetime('now') WHERE id = ?").bind(JSON.stringify(nextActivities), contact.id),
     ]);
-    if (isMetaReengagementError(result)) {
+    if (!silent && isMetaReengagementError(result)) {
       await sendReactivationTemplate(env, contact, "payment_followup");
     }
 
-    return json({ payment, messageStatus: result.ok ? "sent" : "failed", providerMessageId: result.providerMessageId, error: result.error || null }, { status: 201 });
+    return json({
+      payment,
+      messageStatus: silent ? "skipped" : result.ok ? "sent" : "failed",
+      providerMessageId: result.providerMessageId,
+      error: result.error || null,
+    }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "Erro desconhecido");
     console.error("Falha ao gerar pagamento Asaas", { message, stack: error?.stack });
