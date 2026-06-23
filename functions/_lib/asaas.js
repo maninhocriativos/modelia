@@ -26,14 +26,14 @@ export async function createAsaasPayment(env, request, contact, packId) {
     method: "POST",
     body: {
       customer: customer.id,
-      billingType: "UNDEFINED",
+      billingType: "PIX",
       value: Number(pack.amount || 0),
       dueDate,
       description: `Modelia - ${pack.title}`,
       externalReference,
     },
   });
-  const qrCode = payment.billingType === "PIX" ? await getAsaasPixQrCode(env, payment.id) : {};
+  const qrCode = await getAsaasPixQrCode(env, payment.id);
   const qrUrl = qrCode.encodedImage ? new URL(`/api/payments/${encodeURIComponent(paymentId)}/qr`, request.url).toString() : "";
   const qrImage = qrCode.encodedImage || "";
 
@@ -66,7 +66,7 @@ export async function createAsaasPayment(env, request, contact, packId) {
     packTitle: pack.title,
     amount: Number(pack.amount || 0),
     status: "pending",
-    billingType: payment.billingType || "UNDEFINED",
+    billingType: "PIX",
     pixPayload: qrCode.payload || "",
     qrImageUrl: qrImage ? qrUrl : "",
     invoiceUrl: payment.invoiceUrl || payment.bankSlipUrl || "",
@@ -79,11 +79,11 @@ export async function createAsaasPixPayment(env, request, contact, packId) {
 
 export function buildAsaasPaymentMessage(payment) {
   const amount = formatCurrency(payment.amount);
-  const paymentLink = payment.invoiceUrl ? `\n\nLink seguro para pagar com cartao ou Pix:\n${payment.invoiceUrl}` : "";
+  const paymentLink = payment.invoiceUrl ? `\n\nLink seguro para pagar por Pix:\n${payment.invoiceUrl}` : "";
   const pix = payment.pixPayload ? `\n\nPix copia e cola:\n${payment.pixPayload}` : "";
 
   return {
-    text: `Fechei pra voce: ${payment.packTitle} por ${amount}.\n\nEscolha cartao ou Pix no link seguro do Asaas.${paymentLink}${pix}\n\nAssim que o pagamento for confirmado, eu libero o pack completo automaticamente.`,
+    text: `Fechei pra voce: ${payment.packTitle} por ${amount}.\n\nSeu pagamento por Pix esta pronto.${paymentLink}${pix}\n\nAssim que o pagamento for confirmado, eu libero o pack completo automaticamente.`,
     mediaUrl: payment.qrImageUrl || null,
     mediaType: payment.qrImageUrl ? "image" : null,
   };

@@ -60,12 +60,37 @@ const OPENAI_ASSISTANT_ID = "asst_NhbFQ1TeJiBhIZh8D1KRqoqq";
 export function classifyAgeReply(text) {
   const value = normalize(text);
 
-  if (hasAny(value, ["sou maior de 18", "maior de 18", "tenho 18", "+18", "18+", "sim sou maior", "sou maior", "maior18"])) {
-    return "adult";
+  if (
+    hasAny(value, [
+      "sou menor de 18",
+      "menor de 18",
+      "tenho menos de 18",
+      "nao tenho 18",
+      "não tenho 18",
+      "sou menor",
+      "menor18",
+      "nao sou maior",
+      "não sou maior",
+    ])
+  ) {
+    return "minor";
   }
 
-  if (hasAny(value, ["sou menor de 18", "menor de 18", "tenho menos", "sou menor", "menor18", "nao sou maior", "não sou maior"])) {
-    return "minor";
+  if (
+    hasAny(value, [
+      "sou maior de 18",
+      "maior de 18",
+      "mais de 18",
+      "tenho 18",
+      "+18",
+      "18+",
+      "sim sou maior",
+      "sim, tenho 18",
+      "sou maior",
+      "maior18",
+    ])
+  ) {
+    return "adult";
   }
 
   return null;
@@ -89,20 +114,20 @@ export function buildLiaReplies(contact, messages = [], options = {}) {
   const packChoice = classifyPackReply(text);
 
   if (memory.isMinor || classifyAgeReply(text) === "minor") {
-    return [{ text: "Obrigada por ser sincero comigo. Meu conteudo e so para maiores de 18 anos, entao vou encerrar por aqui." }];
+    return [{ text: "Esse atendimento é restrito para maiores de 18 anos. Não podemos continuar com o acesso." }];
   }
 
   if (!memory.isAdult) {
     if (classifyAgeReply(text) === "adult") {
-      return [buildPreferenceMessage(name)];
+      return [buildAdultWelcomeOffers()];
     }
 
     return [
       {
-        text: `Antes de eu brincar com voce${name}, preciso confirmar: meu conteudo e adulto e exclusivo para maiores de 18 anos. Voce confirma que e maior de 18?`,
+        text: "Antes de continuar, confirme: você tem 18 anos ou mais?",
         buttons: [
-          { id: "adult_yes", title: "Sou maior de 18" },
-          { id: "adult_no", title: "Sou menor de 18" },
+          { id: "adult_yes", title: "Sim, tenho 18+" },
+          { id: "adult_no", title: "Não tenho 18" },
         ],
       },
     ];
@@ -183,17 +208,18 @@ function buildAgeGateReply(contact, messages = []) {
   const memory = getMemory(contact, messages);
 
   if (memory.isMinor || classifyAgeReply(text) === "minor") {
-    return [{ text: "Obrigada por ser sincero comigo. Meu conteudo e so para maiores de 18 anos, entao vou encerrar por aqui." }];
+    return [{ text: "Esse atendimento é restrito para maiores de 18 anos. Não podemos continuar com o acesso." }];
   }
 
-  if (memory.isAdult || classifyAgeReply(text) === "adult") return null;
+  if (memory.isAdult) return null;
+  if (classifyAgeReply(text) === "adult") return [buildAdultWelcomeOffers()];
 
   return [
     {
-      text: `Antes de eu brincar com voce${name}, preciso confirmar: meu conteudo e adulto e exclusivo para maiores de 18 anos. Voce confirma que e maior de 18?`,
+      text: "Antes de continuar, confirme: você tem 18 anos ou mais?",
       buttons: [
-        { id: "adult_yes", title: "Sou maior de 18" },
-        { id: "adult_no", title: "Sou menor de 18" },
+        { id: "adult_yes", title: "Sim, tenho 18+" },
+        { id: "adult_no", title: "Não tenho 18" },
       ],
     },
   ];
@@ -208,18 +234,18 @@ function buildGuardedReply(contact, messages = [], options = {}) {
   const sampleVideoUrl = options.sampleVideoUrl || LIA_SAMPLE_VIDEO_PATH;
 
   if (memory.isMinor || classifyAgeReply(text) === "minor") {
-    return [{ text: "Obrigada por ser sincero comigo. Meu conteudo e so para maiores de 18 anos, entao vou encerrar por aqui." }];
+    return [{ text: "Esse atendimento é restrito para maiores de 18 anos. Não podemos continuar com o acesso." }];
   }
 
   if (!memory.isAdult) {
-    if (classifyAgeReply(text) === "adult") return null;
+    if (classifyAgeReply(text) === "adult") return [buildAdultWelcomeOffers()];
 
     return [
       {
-        text: `Antes de eu brincar com voce${name}, preciso confirmar: meu conteudo e adulto e exclusivo para maiores de 18 anos. Voce confirma que e maior de 18?`,
+        text: "Antes de continuar, confirme: você tem 18 anos ou mais?",
         buttons: [
-          { id: "adult_yes", title: "Sou maior de 18" },
-          { id: "adult_no", title: "Sou menor de 18" },
+          { id: "adult_yes", title: "Sim, tenho 18+" },
+          { id: "adult_no", title: "Não tenho 18" },
         ],
       },
     ];
@@ -741,6 +767,18 @@ function buildSampleMessage(name, sampleUrl, sampleVideoUrl = "") {
 function buildOffersMessage(name) {
   return {
     text: `Gostou${name}? Escolhe teu pack que eu separo pra voce:`,
+    buttons: PACKS.map((pack) => ({
+      id: pack.id,
+      title: pack.title,
+      description: pack.description,
+    })),
+    packs: PACKS,
+  };
+}
+
+function buildAdultWelcomeOffers() {
+  return {
+    text: "Perfeito. Vou te mostrar as opções de acesso disponíveis:",
     buttons: PACKS.map((pack) => ({
       id: pack.id,
       title: pack.title,

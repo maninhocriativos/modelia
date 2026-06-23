@@ -806,13 +806,13 @@ function buildLiaReplies(lead, inboundText = "") {
   }
 
   if (isMinor) {
-    return [{ text: "Obrigada por ser sincero comigo. Meu conteudo e so para maiores de 18 anos, entao vou encerrar por aqui." }];
+    return [{ text: "Esse atendimento é restrito para maiores de 18 anos. Não podemos continuar com o acesso." }];
   }
 
   if (!isAdult) {
     return [
       {
-        text: `Antes de eu me soltar com voce${name}, preciso confirmar uma coisa: meu conteudo e adulto e exclusivo para maiores de 18 anos. Voce confirma que e maior de 18?`,
+        text: "Antes de continuar, confirme: você tem 18 anos ou mais?",
       },
     ];
   }
@@ -963,11 +963,11 @@ function getAgeStatusLabel(lead) {
 
 function classifyAgeReply(text) {
   const value = normalizeText(text);
-  if (hasAny(value, ["sou maior de 18", "maior de 18", "tenho 18", "+18", "18+", "sim sou maior", "sou maior", "maior18"])) {
-    return "adult";
-  }
-  if (hasAny(value, ["sou menor de 18", "menor de 18", "tenho menos", "sou menor", "menor18", "nao sou maior", "não sou maior"])) {
+  if (hasAny(value, ["sou menor de 18", "menor de 18", "tenho menos de 18", "nao tenho 18", "não tenho 18", "sou menor", "menor18", "nao sou maior", "não sou maior"])) {
     return "minor";
+  }
+  if (hasAny(value, ["sou maior de 18", "maior de 18", "mais de 18", "tenho 18", "+18", "18+", "sim sou maior", "sim, tenho 18", "sou maior", "maior18"])) {
+    return "adult";
   }
   return null;
 }

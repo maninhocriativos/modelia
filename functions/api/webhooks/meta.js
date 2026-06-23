@@ -73,7 +73,10 @@ function extractMessages(payload) {
 
 function getText(message) {
   if (message.text?.body) return message.text.body;
-  if (message.button?.payload) return mapTemplateButtonPayload(message.button.payload, message.button.text);
+  if (message.button?.payload) return mapButtonPayload(message.button.payload, message.button.text);
+  if (message.interactive?.button_reply?.id) {
+    return mapButtonPayload(message.interactive.button_reply.id, message.interactive.button_reply.title);
+  }
   if (message.button?.text) return message.button.text;
   if (message.interactive?.button_reply?.title) return message.interactive.button_reply.title;
   if (message.interactive?.list_reply?.title) return message.interactive.list_reply.title;
@@ -83,8 +86,10 @@ function getText(message) {
   return "";
 }
 
-function mapTemplateButtonPayload(payload, fallback = "") {
+function mapButtonPayload(payload, fallback = "") {
   const value = String(payload || "").toLowerCase();
+  if (value === "adult_yes") return "Sim, tenho 18+";
+  if (value === "adult_no") return "Não tenho 18";
   if (["continue_yes", "continue_service", "continue_payment"].includes(value)) return "Quero continuar o atendimento";
   if (["see_options", "send_options"].includes(value)) return "Quero ver as opcoes";
   if (["need_help"].includes(value)) return "Preciso de ajuda";
