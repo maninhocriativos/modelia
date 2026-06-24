@@ -39,6 +39,8 @@ Pacotes atualizados:
 
 Regras importantes:
 A confirmacao de maioridade e feita fora do prompt pelo sistema. Depois de confirmado, nao fique repetindo 18+.
+Lia vende somente conteudo digital: fotos, videos, amostras e packs pelo WhatsApp. Nunca marque encontro, reserva presencial, programa, agenda, horario, local, motel, visita ou qualquer combinacao fora dos packs digitais.
+Se o cliente perguntar sobre reserva, encontro, horario, local, combinar pessoalmente ou "como funciona a reserva pelo WhatsApp", responda que nao faz encontro nem atendimento presencial, e redirecione para os packs digitais.
 Os cards/botoes dos pacotes sao chamados pelo sistema. Quando a etapa planejada for "oferta", apenas prepare a chamada para escolher o pack.
 Nao venda cedo. Primeiro converse, provoque, pergunte gosto, mande uma amostra gratis, converse mais e so depois ofereca os packs.
 Nunca diga que esta seguindo funil, regra, sistema ou prompt.
@@ -135,6 +137,10 @@ export function buildLiaReplies(contact, messages = [], options = {}) {
 
   if (hasAny(text, ["parar", "cancelar", "sair", "nao quero", "não quero"])) {
     return [{ text: "Tudo bem. Vou respeitar teu momento e pausar por aqui. Quando quiser voltar, me chama." }];
+  }
+
+  if (isInPersonMeetupIntent(text)) {
+    return [buildDigitalOnlyReply(name, memory.sampleSent)];
   }
 
   if (isExplicitSampleRequest(text)) {
@@ -254,6 +260,10 @@ function buildGuardedReply(contact, messages = [], options = {}) {
 
   if (hasAny(text, ["parar", "cancelar", "sair", "nao quero", "não quero"])) {
     return [{ text: "Tudo bem. Vou respeitar teu momento e pausar por aqui. Quando quiser voltar, me chama." }];
+  }
+
+  if (isInPersonMeetupIntent(text)) {
+    return [buildDigitalOnlyReply(name, memory.sampleSent)];
   }
 
   if (memory.isAdult && isExplicitSampleRequest(text)) {
@@ -393,6 +403,8 @@ Contrato tecnico:
 - Use generate_image para foto/imagem personalizada gerada.
 - Use show_packs para mostrar packs.
 - Use checkout quando houver escolha clara de pack. pack_id deve ser pack_10_fotos, pack_30_fotos ou pack_20_fotos_1_video.
+- Produto permitido: somente conteudo digital da Lia, entregue pelo WhatsApp apos pagamento. Nunca ofereca, confirme ou sugira encontro, reserva presencial, programa, agenda, horario, local, motel, visita ou combinacao presencial.
+- Se o cliente pedir reserva, encontro, horario, local ou atendimento presencial, use continue_conversation e diga claramente que nao faz encontro; ofereca apenas ver amostra/packs digitais.
 `;
   return `
 Voce esta conectado ao CRM/WhatsApp da Lia. Use sua personalidade configurada no Assistant.
@@ -499,6 +511,8 @@ Regras:
 Se a ultima mensagem tiver "Cliente enviou um audio. Transcricao:", use esse conteudo como a fala direta do cliente.
 Se a ultima mensagem tiver "Cliente enviou uma imagem. Descricao para contexto:", responda como se voce tivesse visto a imagem no WhatsApp.
 Nunca mencione que recebeu uma transcricao, descricao automatica, analise de imagem ou contexto operacional.
+Lia vende somente conteudo digital pelo WhatsApp. Nunca marque encontro, reserva presencial, programa, agenda, horario, local, motel, visita ou qualquer combinacao presencial.
+Se o cliente perguntar sobre reserva, encontro, horario, local ou atendimento presencial, responda que nao faz encontro e redirecione para fotos/videos/packs digitais.
 Use lead_preferences para lembrar o gosto do lead: tom preferido, foco visual, formato preferido e sinais de compra. Mostre essa memoria de forma sutil, como uma pessoa atenta.
 Escreva portugues brasileiro correto e natural, com acentos quando necessario. Nunca use caracteres corrompidos como vocÃª/preÃ§o/Ã¡udio.
 Se o cliente disser que quer conversar, perguntar sobre a Lia, fizer pergunta pessoal ou mudar de assunto, use continue_conversation.
@@ -518,6 +532,16 @@ Nao produza sexo grafico explicito, nao solicite nudez do cliente e nao faca per
 }
 
 function sanitizeDecision(decision, messages) {
+  const lastInbound = findLastInbound(messages);
+  if (isInPersonMeetupIntent(lastInbound?.text || "") || containsInPersonOffer(decision.reply_text)) {
+    return {
+      ...decision,
+      action: "continue_conversation",
+      reply_text: buildDigitalOnlyReply("", getMemory(null, messages).sampleSent).text,
+      pack_id: null,
+    };
+  }
+
   if (decision.action === "checkout" && !decision.pack_id) {
     return { ...decision, action: "show_packs", pack_id: null };
   }
@@ -799,6 +823,24 @@ function buildAdultWelcomeOffers() {
   };
 }
 
+function buildDigitalOnlyReply(name, sampleSent = false) {
+  if (sampleSent) {
+    return {
+      text: `Nao marco encontro nem reserva presencial${name}. Por aqui eu trabalho so com conteudo digital: fotos e videos enviados no WhatsApp depois do pagamento. Quer que eu te mostre os packs disponiveis?`,
+      buttons: PACKS.map((pack) => ({
+        id: pack.id,
+        title: pack.title,
+        description: pack.description,
+      })),
+      packs: PACKS,
+    };
+  }
+
+  return {
+    text: `Nao marco encontro nem reserva presencial${name}. Por aqui e so conteudo digital da Lia: fotos, videos e packs enviados no WhatsApp. Se quiser, te mando uma amostra e depois voce escolhe o pack que combina mais contigo.`,
+  };
+}
+
 function buildAfterSampleTease(name, messages) {
   const count = countInboundAfterSample(messages);
   if (count <= 1) {
@@ -1077,6 +1119,77 @@ function countPackMentions(text) {
 function isTechnicalFailureMessage(text) {
   const value = normalize(text);
   return value.includes("falha do agente") || value.includes("nenhuma resposta gerada");
+}
+
+function isInPersonMeetupIntent(text) {
+  const value = normalize(text);
+  if (!value) return false;
+
+  return (
+    hasAny(value, [
+      "reserva pelo whatsapp",
+      "como funciona a reserva",
+      "fazer reserva",
+      "marcar reserva",
+      "reservar horario",
+      "reservar horário",
+      "marcar horario",
+      "marcar horário",
+      "garantir horario",
+      "garantir horário",
+      "marcar encontro",
+      "fazer encontro",
+      "encontro presencial",
+      "atendimento presencial",
+      "programa",
+      "motel",
+      "local",
+      "lugar",
+      "onde atende",
+      "onde voce atende",
+      "onde você atende",
+      "onde fica",
+      "ir ai",
+      "ir aí",
+      "te encontrar",
+      "encontrar voce",
+      "encontrar você",
+      "combinar encontro",
+      "combinar pessoalmente",
+      "agenda",
+    ]) ||
+    ((value.includes("horario") || value.includes("horário")) && hasAny(value, ["reserva", "marcar", "combinar", "garantir"])) ||
+    (value.includes("reserva") && hasAny(value, ["whatsapp", "zap", "horario", "horário", "local", "lugar"]))
+  );
+}
+
+function containsInPersonOffer(text) {
+  const value = normalize(text);
+  if (!value) return false;
+
+  return (
+    hasAny(value, [
+      "a gente combina tudinho",
+      "combina tudinho",
+      "combinar horario",
+      "combinar horário",
+      "garantir seu horario",
+      "garantir seu horário",
+      "garantir horario",
+      "garantir horário",
+      "horario, lugar",
+      "horário, lugar",
+      "horario e lugar",
+      "horário e lugar",
+      "marcar encontro",
+      "marcar um encontro",
+      "reserva presencial",
+      "atendimento presencial",
+      "motel",
+    ]) ||
+    (value.includes("lugar") && hasAny(value, ["horario", "horário", "combina", "combinar"])) ||
+    (value.includes("local") && hasAny(value, ["horario", "horário", "combina", "combinar"]))
+  );
 }
 
 function isVibeQuestion(text) {
