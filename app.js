@@ -1373,7 +1373,7 @@ if (els.sendTemplateButton) {
     try {
       await api(`/api/leads/${encodeURIComponent(lead.id)}/template`, {
         method: "POST",
-        body: JSON.stringify({ templateId: "reengagement" }),
+        body: JSON.stringify({ templateId: "support_followup" }),
       });
       await refreshLeads({ force: true });
     } catch (error) {

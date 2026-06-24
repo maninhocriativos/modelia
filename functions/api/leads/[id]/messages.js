@@ -126,19 +126,28 @@ async function sendAutomaticReply(env, request, contact) {
 }
 
 async function sendAsaasPaymentReply(env, request, contact, packId) {
-  const payment = await createAsaasPayment(env, request, contact, packId);
-  const reply = buildAsaasPaymentMessage(payment);
-  const result = await sendMetaMessage(env, contact.phone, reply);
+  try {
+    const payment = await createAsaasPayment(env, request, contact, packId);
+    const reply = buildAsaasPaymentMessage(payment);
+    const result = await sendMetaMessage(env, contact.phone, reply);
 
-  await env.DB.batch([
-    env.DB.prepare(
-      `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status, provider_error)
-       VALUES (?, ?, 'outbound', ?, ?, ?, 'asaas-payment', ?, ?, ?)`
-    ).bind(createId("msg"), contact.id, reply.text, reply.mediaUrl, reply.mediaType, result.providerMessageId, result.ok ? "sent" : "failed", result.error || ""),
-    env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id),
-  ]);
-  if (isMetaReengagementError(result)) {
-    await sendReactivationTemplate(env, contact, "payment_followup");
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO messages (id, contact_id, direction, text, media_url, media_type, provider, provider_message_id, status, provider_error)
+         VALUES (?, ?, 'outbound', ?, ?, ?, 'asaas-payment', ?, ?, ?)`
+      ).bind(createId("msg"), contact.id, reply.text, reply.mediaUrl, reply.mediaType, result.providerMessageId, result.ok ? "sent" : "failed", result.error || ""),
+      env.DB.prepare("UPDATE contacts SET stage = 'proposta', updated_at = datetime('now') WHERE id = ?").bind(contact.id),
+    ]);
+    if (isMetaReengagementError(result)) {
+      await sendReactivationTemplate(env, contact, "payment_followup");
+    }
+  } catch (error) {
+    const reply = { text: buildPaymentFailureMessage(error) };
+    const result = await sendMetaMessage(env, contact.phone, reply);
+    await insertOutboundMessage(env, contact.id, reply, result, "asaas-payment");
+    if (isMetaReengagementError(result)) {
+      await sendReactivationTemplate(env, contact, "payment_followup");
+    }
   }
 }
 
@@ -207,14 +216,60 @@ async function handleFullDiscountCoupon(env, request, contact, messages, text) {
 
 function inferPackForCoupon(contact, messages) {
   const fromInterest = classifyPackReply(contact?.interest || "");
-  if (fromInterest) return fromInterest;
+  if (fromInterest && countPackMentions(contact?.interest || "") === 1) return fromInterest;
 
   for (const message of [...messages].reverse()) {
-    const packId = classifyPackReply(message.text || "");
-    if (packId) return packId;
+    const text = String(message.text || "");
+    if (!text || isTechnicalFailureMessage(text)) continue;
+
+    const packId = classifyPackReply(text);
+    if (!packId) continue;
+
+    if (message.direction === "inbound") return packId;
+    if (isCheckoutOrPaymentText(text)) return packId;
   }
 
   return null;
+}
+
+function buildPaymentFailureMessage(error) {
+  const message = String(error?.message || error || "");
+  if (message.toLowerCase().includes("cpf") || message.toLowerCase().includes("cnpj")) {
+    return "Nao consegui validar esse CPF/CNPJ para gerar o Pix. Confere os numeros e me manda de novo, por favor.";
+  }
+  return "Nao consegui gerar o Pix agora. Me chama de novo em instantes que eu tento novamente pra voce.";
+}
+
+function isCheckoutOrPaymentText(text) {
+  const value = normalizeText(text);
+  return (
+    value.includes("fechei o") ||
+    value.includes("fechei pra voce") ||
+    value.includes("pagamento por pix") ||
+    value.includes("pix copia e cola") ||
+    value.includes("cpf do titular")
+  );
+}
+
+function countPackMentions(text) {
+  const value = normalizeText(text);
+  let count = 0;
+  if (value.includes("pack_10_fotos") || value.includes("10 fotos") || value.includes("19,90") || value.includes("19.90")) count += 1;
+  if (value.includes("pack_30_fotos") || value.includes("30 fotos") || value.includes("39,90") || value.includes("39.90")) count += 1;
+  if (value.includes("pack_20_fotos_1_video") || value.includes("20 fotos") || value.includes("video") || value.includes("59,90") || value.includes("59.90")) count += 1;
+  return count;
+}
+
+function isTechnicalFailureMessage(text) {
+  const value = normalizeText(text);
+  return value.includes("falha do agente") || value.includes("nenhuma resposta gerada");
+}
+
+function normalizeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function isTaxIdText(text) {

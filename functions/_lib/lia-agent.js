@@ -186,19 +186,19 @@ export function buildLiaReplies(contact, messages = [], options = {}) {
 
 export async function buildLiaRepliesWithAi(env, contact, messages = [], options = {}) {
   const runtimeOptions = { ...options, payment: buildPaymentConfig(env, contact) };
-  const guarded = buildAgeGateReply(contact, messages);
+  const guarded = buildGuardedReply(contact, messages, runtimeOptions);
   if (guarded) return guarded;
 
-  if (!env.OPENAI_API_KEY) return [];
+  if (!env.OPENAI_API_KEY) return buildLiaReplies(contact, messages, runtimeOptions);
 
   try {
     const replies = await buildAutonomousLiaReplies(env, contact, messages, runtimeOptions);
     if (replies?.length) return replies;
   } catch {
-    return [];
+    return buildLiaReplies(contact, messages, runtimeOptions);
   }
 
-  return [];
+  return buildLiaReplies(contact, messages, runtimeOptions);
 }
 
 function buildAgeGateReply(contact, messages = []) {
@@ -232,6 +232,7 @@ function buildGuardedReply(contact, messages = [], options = {}) {
   const memory = getMemory(contact, messages);
   const sampleUrl = options.sampleUrl || LIA_SAMPLE_IMAGE_PATH;
   const sampleVideoUrl = options.sampleVideoUrl || LIA_SAMPLE_VIDEO_PATH;
+  const packChoice = classifyPackReply(text);
 
   if (memory.isMinor || classifyAgeReply(text) === "minor") {
     return [{ text: "Esse atendimento é restrito para maiores de 18 anos. Não podemos continuar com o acesso." }];
@@ -257,6 +258,16 @@ function buildGuardedReply(contact, messages = [], options = {}) {
 
   if (memory.isAdult && isExplicitSampleRequest(text)) {
     return [buildSampleMessage(name, sampleUrl, sampleVideoUrl)];
+  }
+
+  if (memory.isAdult && packChoice) {
+    return [buildCheckoutMessage(name, packChoice, options.payment)];
+  }
+
+  if (memory.isAdult && isContinueIntent(text)) {
+    const selectedPack = inferRecentSelectedPack(contact, messages);
+    if (selectedPack) return [buildCheckoutMessage(name, selectedPack, options.payment)];
+    return [buildOffersMessage(name)];
   }
 
   return null;
@@ -909,16 +920,20 @@ function crc16Pix(payload) {
 }
 
 function summarizeHistory(messages) {
-  return messages.slice(-12).map((message) => ({
-    role: getDirection(message) === "outbound" || message.from === "agent" ? "lia" : "cliente",
-    text: String(message.text || "").slice(0, 500),
-    has_media: Boolean(message.mediaUrl || message.media_url),
-  }));
+  return messages
+    .filter((message) => !isTechnicalFailureMessage(message.text))
+    .slice(-12)
+    .map((message) => ({
+      role: getDirection(message) === "outbound" || message.from === "agent" ? "lia" : "cliente",
+      text: String(message.text || "").slice(0, 500),
+      has_media: Boolean(message.mediaUrl || message.media_url),
+    }));
 }
 
 function summarizeRecentLiaTexts(messages) {
   return messages
     .filter((message) => getDirection(message) === "outbound" || message.from === "agent")
+    .filter((message) => !isTechnicalFailureMessage(message.text))
     .slice(-5)
     .map((message) => String(message.text || "").slice(0, 280));
 }
@@ -993,7 +1008,9 @@ function findLastInbound(messages) {
 
 function getMemory(contact, messages) {
   const tags = parseTags(contact?.tags);
-  const outbound = messages.filter((message) => getDirection(message) === "outbound" || message.from === "agent");
+  const outbound = messages
+    .filter((message) => getDirection(message) === "outbound" || message.from === "agent")
+    .filter((message) => !isTechnicalFailureMessage(message.text));
   return {
     isAdult: tags.includes(AGE_TAGS.adult),
     isMinor: tags.includes(AGE_TAGS.minor),
@@ -1003,6 +1020,63 @@ function getMemory(contact, messages) {
     sampleSent: outbound.some((message) => isSampleMessage(message)),
     offersSent: outbound.some((message) => normalize(message.text).includes("escolhe teu pack") || normalize(message.text).includes("10 fotos")),
   };
+}
+
+function isContinueIntent(text) {
+  const value = normalize(text);
+  return hasAny(value, [
+    "quero continuar",
+    "continuar atendimento",
+    "continuar",
+    "ver opcoes",
+    "ver opções",
+    "preciso de ajuda",
+    "ajuda",
+  ]);
+}
+
+function inferRecentSelectedPack(contact, messages = []) {
+  const fromInterest = classifyPackReply(contact?.interest || "");
+  if (fromInterest && countPackMentions(contact?.interest || "") === 1) return fromInterest;
+
+  for (const message of [...messages].reverse()) {
+    const text = String(message.text || "");
+    if (!text || isTechnicalFailureMessage(text)) continue;
+
+    const packId = classifyPackReply(text);
+    if (!packId) continue;
+
+    const direction = getDirection(message);
+    if (direction === "inbound" || message.from === "client") return packId;
+    if (isCheckoutOrPaymentText(text)) return packId;
+  }
+
+  return null;
+}
+
+function isCheckoutOrPaymentText(text) {
+  const value = normalize(text);
+  return (
+    value.includes("fechei o") ||
+    value.includes("fechei pra voce") ||
+    value.includes("pagamento por pix") ||
+    value.includes("pix copia e cola") ||
+    value.includes("cpf do titular")
+  );
+}
+
+function countPackMentions(text) {
+  const value = normalize(text);
+  let count = 0;
+  if (hasAny(value, ["pack_10_fotos", "10 fotos", "19,90", "19.90"])) count += 1;
+  if (hasAny(value, ["pack_30_fotos", "30 fotos", "39,90", "39.90"])) count += 1;
+  if (hasAny(value, ["pack_20_fotos_1_video", "20 fotos", "video", "vídeo", "59,90", "59.90"])) count += 1;
+  return count;
+}
+
+function isTechnicalFailureMessage(text) {
+  const value = normalize(text);
+  return value.includes("falha do agente") || value.includes("nenhuma resposta gerada");
 }
 
 function isVibeQuestion(text) {
